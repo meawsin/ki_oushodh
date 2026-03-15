@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/date_utils.dart';
 import 'data/local/hive_setup.dart';
+import 'features/scanner/scanner_screen.dart';
 
 // ---------------------------------------------------------------------------
 // Riverpod provider to make SharedPreferences available app-wide
@@ -91,49 +92,7 @@ class KiOushodhApp extends ConsumerWidget {
         );
       },
 
-      // --- Placeholder home; will be replaced with the ScannerScreen in Phase 2 ---
-      home: const _AppPlaceholderScreen(),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Temporary placeholder screen — confirms the app boots correctly.
-// This will be removed and replaced by ScannerScreen in the next phase.
-// ---------------------------------------------------------------------------
-class _AppPlaceholderScreen extends StatelessWidget {
-  const _AppPlaceholderScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.medication_rounded,
-              size: 80,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'কি ঔষধ',
-              style: Theme.of(context).textTheme.displayMedium,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Foundation ready. Awaiting Phase 2.',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurface.withOpacity(0.6),
-                  ),
-            ),
-          ],
-        ),
-      ),
+      home: const ScannerScreen(),
     );
   }
 }
