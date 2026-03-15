@@ -1,121 +1,138 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MyApp());
+import 'core/theme/app_theme.dart';
+import 'core/utils/date_utils.dart';
+import 'data/local/hive_setup.dart';
+
+// ---------------------------------------------------------------------------
+// Riverpod provider to make SharedPreferences available app-wide
+// ---------------------------------------------------------------------------
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  // Overridden in main() before runApp — see below.
+  throw UnimplementedError('SharedPreferences not yet initialized.');
+});
+
+// ---------------------------------------------------------------------------
+// Entry Point
+// ---------------------------------------------------------------------------
+Future<void> main() async {
+  // Required before any async work in main()
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // --- Lock orientation to portrait (ideal for one-handed elderly users) ---
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+
+  // --- Initialize Hive for 30-day local scan history ---
+  final appDocumentDir = await getApplicationDocumentsDirectory();
+  await Hive.initFlutter(appDocumentDir.path);
+  await HiveSetup.registerAdaptersAndOpenBoxes();
+
+  // --- Run 30-day history cleanup on every app launch ---
+  await AppDateUtils.purgeExpiredScanHistory();
+
+  // --- Initialize SharedPreferences (settings & language state) ---
+  final sharedPreferences = await SharedPreferences.getInstance();
+
+  // ---------------------------------------------------------------------------
+  // runApp — ProviderScope is the top-level wrapper required by Riverpod.
+  // We override sharedPreferencesProvider here so it is available
+  // synchronously to all child providers without needing a FutureProvider.
+  // ---------------------------------------------------------------------------
+  runApp(
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+      ],
+      child: const KiOushodhApp(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+// ---------------------------------------------------------------------------
+// Root Application Widget
+// ---------------------------------------------------------------------------
+class KiOushodhApp extends ConsumerWidget {
+  const KiOushodhApp({super.key});
 
-  // This widget is the root of your application.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // In later phases, a settingsProvider will drive themeMode and fontScale.
+    // For now we default to dark mode as a high-contrast baseline per the PRD.
+    const themeMode = ThemeMode.dark;
+
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      title: 'কি ঔষধ',
+      debugShowCheckedModeBanner: false,
+
+      // --- Theme: High-contrast, large-font foundations (PRD §6) ---
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
+
+      // --- Accessibility: Large text scaling allowed, but cap to prevent layout breaks ---
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            // Respect user OS font scale but cap at 1.3x to prevent overflow
+            // on critical accessibility UI elements. This will become a
+            // user-configurable setting (FR Settings) in a later phase.
+            textScaler: TextScaler.linear(
+              MediaQuery.of(context).textScaler.scale(1.0).clamp(1.0, 1.3),
+            ),
+          ),
+          child: child!,
+        );
+      },
+
+      // --- Placeholder home; will be replaced with the ScannerScreen in Phase 2 ---
+      home: const _AppPlaceholderScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+// ---------------------------------------------------------------------------
+// Temporary placeholder screen — confirms the app boots correctly.
+// This will be removed and replaced by ScannerScreen in the next phase.
+// ---------------------------------------------------------------------------
+class _AppPlaceholderScreen extends StatelessWidget {
+  const _AppPlaceholderScreen();
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
+      backgroundColor: colorScheme.surface,
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('You have pushed the button this many times:'),
+            Icon(
+              Icons.medication_rounded,
+              size: 80,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(height: 24),
             Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+              'কি ঔষধ',
+              style: Theme.of(context).textTheme.displayMedium,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Foundation ready. Awaiting Phase 2.',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurface.withOpacity(0.6),
+                  ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
