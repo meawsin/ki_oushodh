@@ -1,0 +1,52 @@
+name: ki_oushodh
+description: "Ki Oushodh - An accessible medicine identifier for elderly and low-literacy users."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- State Management ---
+  flutter_riverpod: ^2.5.1
+
+  # --- Camera ---
+  camera: ^0.11.0+2
+
+  # --- On-Device OCR (Google ML Kit) ---
+  google_mlkit_text_recognition: ^0.13.1
+
+  # --- LLM: Official Google Gemini SDK ---
+  google_generative_ai: ^0.4.6
+
+  # --- Text-to-Speech ---
+  flutter_tts: ^4.0.2
+
+  # --- Local Storage: Settings & Preferences ---
+  shared_preferences: ^2.3.2
+
+  # --- Local Storage: 30-Day Scan History ---
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # --- Utilities ---
+  intl: ^0.19.0           # Date formatting for history timestamps
+  path_provider: ^2.1.3   # Required by Hive for locating the device storage path
+  uuid: ^4.4.2            # Generating unique IDs for ScanHistory records
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  hive_generator: ^2.0.1    # Code generation for Hive TypeAdapters
+  build_runner: ^2.4.12     # Required to run hive_generator
+
+flutter:
+  uses-material-design: true
+  # Assets directory — add your icons and audio cues here in future phases
+  # assets:
+  #   - assets/images/
+  #   - assets/audio/
