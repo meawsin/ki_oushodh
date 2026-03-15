@@ -239,9 +239,47 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                     ),
                   ),
 
+                  // ── Bangla TTS notice (only when bn selected + unavailable) ──
+                  if (result.language == 'bn' &&
+                      !ref.read(ttsServiceProvider).isBanglaAvailable)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1400),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFFFBF00).withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.volume_off_rounded,
+                                color: const Color(0xFFFFBF00).withValues(alpha: 0.6),
+                                size: 14),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'বাংলায় পড়তে Play Store থেকে Google TTS → Bengali ইনস্টল করুন',
+                                style: TextStyle(
+                                  color: const Color(0xFFFFBF00).withValues(alpha: 0.7),
+                                  fontSize: 10,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 8),
+
                   // ── Action buttons ─────────────────────────────────────
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                     child: Row(
                       children: [
                         // Play button
@@ -251,6 +289,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                             ref.read(ttsServiceProvider).speak(
                               result.spokenText,
                               language: result.language,
+                              englishFallback: result.spokenTextEn,
                             );
                           },
                           child: Container(

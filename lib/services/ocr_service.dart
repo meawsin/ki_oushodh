@@ -2,45 +2,46 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
-// ---------------------------------------------------------------------------
-// OCRService
-//
-// Responsibilities:
-//   - Run on-device ML Kit text recognition on a captured image file
-//   - Clean up the temp image file immediately after processing
-//   - Return a cleaned raw text string for the LLM service
-//
-// Low-end device decisions:
-//   - Script.latin only — the Latin model is ~1MB vs ~3MB for multi-script.
-//     Medicine drug names on Bangladeshi blister packs are always Latin-script
-//     (e.g., "Napa 500mg", "Amlodipine") even if surrounding text is Bengali.
-//     Bengali script on packaging goes to Gemini as context anyway.
-//   - TextRecognizer is created fresh per scan and closed immediately after.
-//     Do NOT keep it as a class-level singleton — it holds a native resource
-//     that will leak on low-RAM devices if the screen is disposed mid-scan.
-//   - The temp file is deleted after processing — critical for low-storage devices.
-// ---------------------------------------------------------------------------
 class OCRService {
-  /// Extracts raw text from the image at [imagePath].
-  ///
-  /// Cleans up the temp file regardless of success or failure.
-  /// Returns an empty string if no text is detected (not an error).
-  /// Throws [OCRServiceException] on a hard failure (corrupt image, etc).
+  // ---------------------------------------------------------------------------
+  // Pharmaceutical signals — words that appear on medicine packaging.
+  // If NONE of these appear in the OCR text, it's almost certainly not medicine.
+  // Kept intentionally broad to avoid false negatives on partial scans.
+  // ---------------------------------------------------------------------------
+  static const _medicineSignals = {
+    // Dosage units
+    'mg', 'mcg', 'ml', 'iu', 'usp', 'bp', 'ip',
+    // Packaging words
+    'tablet', 'tablets', 'tab', 'capsule', 'capsules', 'cap',
+    'syrup', 'injection', 'cream', 'ointment', 'drops', 'strip',
+    'blister', 'sachet', 'gel', 'inhaler', 'suspension',
+    // Regulatory / pharma words
+    'mfg', 'manufacturing', 'batch', 'exp', 'expiry', 'manufactured',
+    'pharma', 'pharmaceuticals', 'laboratories', 'lab', 'ltd',
+    'license', 'lic', 'reg', 'registration',
+    // Common generic drug suffixes that appear on packaging
+    'hydroxide', 'hydrochloride', 'sulfate', 'acetate', 'sodium',
+    'potassium', 'oxide', 'acid', 'citrate', 'gluconate',
+    // Common Bangladeshi pharma brands / words that appear on strips
+    'square', 'acme', 'beximco', 'incepta', 'eskayef', 'opsonin',
+    'renata', 'aristopharma', 'healthcare', 'strength', 'dose',
+    'double', 'forte', 'plus', 'extra',
+  };
+
+  // Minimum number of medicine signals required to pass validation
+  static const _minSignals = 1;
+
   Future<String> extractText(String imagePath) async {
     final imageFile = File(imagePath);
     final inputImage = InputImage.fromFile(imageFile);
-
-    // Create recognizer locally — closed in finally block
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
 
     try {
       final RecognizedText result = await recognizer.processImage(inputImage);
 
-      // Combine all recognized blocks into a single string.
-      // We preserve newlines between blocks — this helps Gemini distinguish
-      // between the drug name line and the dosage/manufacturer lines.
       final rawText = result.blocks
           .map((block) => block.text.trim())
           .where((text) => text.isNotEmpty)
@@ -50,25 +51,46 @@ class OCRService {
     } on Exception catch (e) {
       throw OCRServiceException('Text recognition failed: ${e.toString()}');
     } finally {
-      // Always close the recognizer to free the native ML Kit resource
       await recognizer.close();
-
-      // Always delete the temp capture file — do not accumulate on device storage
       try {
-        if (await imageFile.exists()) {
-          await imageFile.delete();
-        }
-      } catch (_) {
-        // Non-fatal — OS will clean up temp files eventually
-        // Don't rethrow and mask the real result/error
+        if (await imageFile.exists()) await imageFile.delete();
+      } catch (_) {}
+    }
+  }
+
+  /// Validates that the extracted text looks like medicine packaging.
+  /// Returns null if valid, or a user-facing error message if not.
+  String? validateAsMedicine(String rawText, String language) {
+    if (rawText.trim().isEmpty) {
+      return language == 'bn'
+          ? 'কোনো লেখা পাওয়া যায়নি। ওষুধের স্ট্রিপে আরও কাছে ধরুন।'
+          : 'No text found. Hold the camera closer to the medicine strip.';
+    }
+
+    final textLower = rawText.toLowerCase();
+    final words = textLower.split(RegExp(r'[\s\n,./\\()\[\]:;]+'));
+
+    // Count how many medicine signals appear in the text
+    int signalCount = 0;
+    for (final signal in _medicineSignals) {
+      if (words.contains(signal) || textLower.contains(signal)) {
+        signalCount++;
+        if (signalCount >= _minSignals) break;
       }
     }
+
+    if (signalCount < _minSignals) {
+      debugPrint('=== OCR VALIDATION FAILED — not medicine packaging ===');
+      debugPrint('=== Text: ${rawText.substring(0, rawText.length.clamp(0, 100))} ===');
+      return language == 'bn'
+          ? 'এটি ওষুধের প্যাকেট মনে হচ্ছে না। শুধুমাত্র ওষুধের স্ট্রিপ বা প্যাকেট স্ক্যান করুন।'
+          : 'This doesn\'t look like medicine packaging. Please scan a medicine strip or box only.';
+    }
+
+    return null; // Valid
   }
 }
 
-// ---------------------------------------------------------------------------
-// Typed exception
-// ---------------------------------------------------------------------------
 class OCRServiceException implements Exception {
   final String message;
   const OCRServiceException(this.message);

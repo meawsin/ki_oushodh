@@ -1,20 +1,25 @@
 // lib/domain/models/scan_result.dart
 
 class ScanResult {
-  final String medicineName;   // Display name shown on screen
-  final String brandName;      // Just the brand (for history)
-  final String genericName;    // Just the generic (for history)
-  final String summary;        // Plain-language explanation
-  final String language;       // 'en' or 'bn'
+  final String medicineName;
+  final String brandName;
+  final String genericName;
+  final String summary;          // In the selected language
+  final String summaryEn;        // Always English — TTS fallback for Bangla
+  final String language;
 
   const ScanResult({
     required this.medicineName,
     required this.brandName,
     required this.genericName,
     required this.summary,
+    required this.summaryEn,
     required this.language,
   });
 
-  /// Spoken text — name first, then summary
+  /// Spoken text in selected language
   String get spokenText => '$medicineName. $summary';
+
+  /// English spoken text — used as TTS fallback when Bangla voice unavailable
+  String get spokenTextEn => '$medicineName. $summaryEn';
 }

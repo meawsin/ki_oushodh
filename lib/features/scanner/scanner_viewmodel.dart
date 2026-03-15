@@ -1,7 +1,7 @@
 // lib/features/scanner/scanner_viewmodel.dart
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/models/scan_result.dart';
 import '../../main.dart';
@@ -110,21 +110,20 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
     final checkingMsg = language == 'bn' ? 'দেখা হচ্ছে...' : 'Checking...';
 
     state = ScanStateProcessing(checkingMsg);
-    await _tts.speak(checkingMsg, language: language);
+    await _tts.speak(checkingMsg, language: language,
+        englishFallback: 'Checking...');
 
     try {
       final imagePath = await _camera.captureFrame();
       final rawText = await _ocr.extractText(imagePath);
 
-      // ADD THIS TEMPORARILY:
-      debugPrint('=== OCR RAW TEXT ===\n$rawText\n=== END OCR ===');
-
-      if (rawText.trim().isEmpty) {
-        final msg = language == 'bn'
-            ? 'কোনো লেখা পাওয়া যায়নি। ক্যামেরা ওষুধের কাছে ধরুন।'
-            : 'No text found. Please hold the camera closer to the medicine.';
-        state = const ScanStateNoTextFound();
-        await _tts.speak(msg, language: language);
+      // --- Medicine validation: reject chips, beverages, etc. ---
+      final validationError = _ocr.validateAsMedicine(rawText, language);
+      if (validationError != null) {
+        state = ScanStateError(validationError);
+        await _tts.speak(validationError, language: language,
+            englishFallback:
+                'This does not look like medicine packaging. Please scan a medicine strip only.');
         return;
       }
 
@@ -134,23 +133,31 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
       );
 
       state = ScanStateResult(result);
-      await _tts.speak(result.spokenText, language: language);
+      await _tts.speak(
+        result.spokenText,
+        language: language,
+        englishFallback: result.spokenTextEn,
+      );
 
     } on CameraServiceException catch (e) {
       state = ScanStateError(e.message);
-      await _tts.speak(e.message, language: language);
+      await _tts.speak(e.message, language: language,
+          englishFallback: e.message);
     } on OCRServiceException catch (e) {
       state = ScanStateError(e.message);
-      await _tts.speak(e.message, language: language);
+      await _tts.speak(e.message, language: language,
+          englishFallback: e.message);
     } on LLMServiceException catch (e) {
       state = ScanStateError(e.message);
-      await _tts.speak(e.message, language: language);
+      await _tts.speak(e.message, language: language,
+          englishFallback: 'Could not identify the medicine. Please try again.');
     } catch (_) {
       final msg = language == 'bn'
           ? 'একটি সমস্যা হয়েছে। আবার চেষ্টা করুন।'
           : 'Something went wrong. Please try again.';
       state = ScanStateError(msg);
-      await _tts.speak(msg, language: language);
+      await _tts.speak(msg, language: language,
+          englishFallback: 'Something went wrong. Please try again.');
     }
   }
 
@@ -176,7 +183,9 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
           : 'Please point the camera at the medicine and tap the screen.';
 
       state = const ScanStateReady();
-      await _tts.speak(promptMsg, language: language);
+      await _tts.speak(promptMsg, language: language,
+          englishFallback:
+              'Please point the camera at the medicine and tap the scan button.');
 
     } on CameraServiceException catch (e) {
       state = ScanStateError(e.message);

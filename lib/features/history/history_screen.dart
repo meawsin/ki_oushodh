@@ -333,6 +333,7 @@ class _HistoryCard extends ConsumerWidget {
                   ref.read(ttsServiceProvider).speak(
                     spoken,
                     language: item.language,
+                    englishFallback: '${item.brandName}. ${item.summary}',
                   );
                 },
                 child: Container(

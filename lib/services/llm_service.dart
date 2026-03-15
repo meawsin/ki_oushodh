@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import '../core/constants/bn_translations.dart';
 import '../domain/models/scan_result.dart';
 
 class LLMService {
@@ -133,10 +134,8 @@ class LLMService {
     for (final candidate in candidates) {
       final key = candidate.toLowerCase().trim();
 
-      // Exact brand match
       String? genericName = _brandIndex![key];
 
-      // Fuzzy match if exact fails
       if (genericName == null) {
         for (final brand in _brandIndex!.keys) {
           if (brand.contains(key) || key.contains(brand)) {
@@ -149,9 +148,13 @@ class LLMService {
       if (genericName == null) continue;
 
       final rawSummary = _medicineDb![genericName.toLowerCase()] ?? '';
-      final summary = _simplify(rawSummary, genericName, language);
+      // Always build English summary for TTS fallback
+      final summaryEn = _simplify(rawSummary, genericName, 'en');
+      // Build the display summary in requested language
+      final summary = language == 'bn'
+          ? _simplifyBn(rawSummary, genericName)
+          : summaryEn;
 
-      // Display brand name cleanly — capitalize first letter
       final displayBrand = candidate[0].toUpperCase() + candidate.substring(1);
 
       return ScanResult(
@@ -159,26 +162,32 @@ class LLMService {
         brandName: displayBrand,
         genericName: genericName,
         summary: summary,
+        summaryEn: summaryEn,
         language: language,
       );
     }
     return null;
   }
 
-  /// Converts clinical database text into plain accessible language.
-  ///
-  /// Database summaries sound like: "Paracetamol is indicated for fever,
-  /// common cold and influenza, headache..."
-  ///
-  /// We want: "This medicine is used for fever, headache, and pain relief."
-  String _simplify(String raw, String genericName, String language) {
-    if (raw.isEmpty) {
-      return language == 'bn'
-          ? '$genericName গ্রুপের একটি ওষুধ।'
-          : 'This medicine contains $genericName.';
-    }
+  /// Bangla display summary — wraps the English content in a Bangla sentence frame
+  /// since the DB only has English descriptions.
+  /// Returns a natural Bangla summary using the translations map.
+  /// Falls back to a simple Bangla frame around English only if no
+  /// translation exists.
+  String _simplifyBn(String raw, String genericName) {
+    // Try the translation map first — gives natural, idiomatic Bangla
+    final translated = BnTranslations.translateSummary(raw, genericName);
+    if (translated != raw) return translated; // A translation was found
 
-    // Strip clinical preamble patterns
+    // No translation — build a minimal Bangla sentence
+    // Use English indication terms rather than garbling them
+    final cleaned = _cleanRaw(raw);
+    if (cleaned.isEmpty) return '$genericName গ্রুপের একটি ওষুধ।';
+    return 'এই ওষুধটি $cleaned এর জন্য ব্যবহার করা হয়।';
+  }
+
+  /// Strips clinical preamble from raw DB text and caps at 120 chars.
+  String _cleanRaw(String raw) {
     String cleaned = raw
         .replaceAll(RegExp(r'^[^:]+is indicated (for|in)[:\s]*', caseSensitive: false), '')
         .replaceAll(RegExp(r'^[^:]+is used (for|in)[:\s]*', caseSensitive: false), '')
@@ -187,21 +196,27 @@ class LLMService {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
 
-    // Take only up to first 120 characters to keep it brief for TTS
     if (cleaned.length > 120) {
       final cut = cleaned.substring(0, 120);
       final lastSpace = cut.lastIndexOf(' ');
       cleaned = '${cut.substring(0, lastSpace)}...';
     }
+    return cleaned;
+  }
 
+  String _simplify(String raw, String genericName, String language) {
+    if (raw.isEmpty) {
+      return language == 'bn'
+          ? '$genericName গ্রুপের একটি ওষুধ।'
+          : 'This medicine contains $genericName.';
+    }
+    final cleaned = _cleanRaw(raw);
     if (language == 'bn') {
       return 'এই ওষুধটি $cleaned এর জন্য ব্যবহার করা হয়।';
     } else {
-      // Ensure it starts naturally
-      if (!cleaned.toLowerCase().startsWith('this')) {
-        return 'This medicine is used for $cleaned';
-      }
-      return cleaned;
+      return cleaned.toLowerCase().startsWith('this')
+          ? cleaned
+          : 'This medicine is used for $cleaned';
     }
   }
 
@@ -219,17 +234,24 @@ class LLMService {
       final extract = json['extract'] as String? ?? '';
       final title = json['title'] as String? ?? candidate;
 
-      final medKeywords = ['drug','medication','medicine','antibiotic','analgesic','treatment','tablet','capsule'];
-      if (!medKeywords.any((kw) => description.contains(kw) || extract.toLowerCase().contains(kw))) {
+      final medKeywords = ['drug','medication','medicine','antibiotic',
+          'analgesic','treatment','tablet','capsule'];
+      if (!medKeywords.any((kw) =>
+          description.contains(kw) || extract.toLowerCase().contains(kw))) {
         return null;
       }
 
-      final summary = _firstSentence(extract);
+      final summaryEn = _firstSentence(extract);
+      final summary = language == 'bn'
+          ? 'এই ওষুধটি $summaryEn এর জন্য ব্যবহার করা হয়।'
+          : summaryEn;
+
       return ScanResult(
         medicineName: title,
         brandName: candidate,
         genericName: title,
         summary: summary,
+        summaryEn: summaryEn,
         language: language,
       );
     }
