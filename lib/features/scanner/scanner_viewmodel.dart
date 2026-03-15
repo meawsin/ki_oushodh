@@ -1,144 +1,183 @@
 // lib/features/scanner/scanner_viewmodel.dart
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/models/scan_result.dart';
+import '../../main.dart';
 import '../../services/camera_service.dart';
+import '../../services/llm_service.dart';
 import '../../services/ocr_service.dart';
+import '../../services/tts_service.dart';
 
 // ---------------------------------------------------------------------------
-// Scan State — sealed class representing every possible state of the scanner
+// Language State Provider
 // ---------------------------------------------------------------------------
-sealed class ScanState {
-  const ScanState();
+final languageProvider =
+    NotifierProvider<LanguageNotifier, String>(LanguageNotifier.new);
+
+class LanguageNotifier extends Notifier<String> {
+  static const _key = 'selected_language';
+  static const _defaultLanguage = 'bn';
+
+  @override
+  String build() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    return prefs.getString(_key) ?? _defaultLanguage;
+  }
+
+  Future<void> setLanguage(String lang) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setString(_key, lang);
+    state = lang;
+  }
+
+  void toggle() => setLanguage(state == 'bn' ? 'en' : 'bn');
 }
 
-/// Camera is initializing
-class ScanStateInitializing extends ScanState {
-  const ScanStateInitializing();
-}
+// ---------------------------------------------------------------------------
+// Scan State
+// ---------------------------------------------------------------------------
+sealed class ScanState { const ScanState(); }
 
-/// Camera is live, waiting for user to tap
-class ScanStateReady extends ScanState {
-  const ScanStateReady();
-}
+class ScanStateInitializing extends ScanState { const ScanStateInitializing(); }
 
-/// User tapped — capture + OCR in progress
+class ScanStateReady extends ScanState { const ScanStateReady(); }
+
 class ScanStateProcessing extends ScanState {
-  const ScanStateProcessing();
+  final String statusMessage;
+  const ScanStateProcessing(this.statusMessage);
 }
 
-/// OCR succeeded — raw text extracted, ready for LLM (Phase 3)
-class ScanStateOCRComplete extends ScanState {
-  final String rawText;
-  const ScanStateOCRComplete(this.rawText);
+class ScanStateResult extends ScanState {
+  final ScanResult result;
+  const ScanStateResult(this.result);
 }
 
-/// Empty scan — camera captured but no text detected in the image
-class ScanStateNoTextFound extends ScanState {
-  const ScanStateNoTextFound();
-}
+class ScanStateNoTextFound extends ScanState { const ScanStateNoTextFound(); }
 
-/// Something went wrong — message is user-readable and will be spoken by TTS
 class ScanStateError extends ScanState {
   final String message;
   const ScanStateError(this.message);
 }
 
 // ---------------------------------------------------------------------------
-// Providers
+// Service Providers
 // ---------------------------------------------------------------------------
-
-/// Provides the CameraService as a singleton scoped to the scanner feature.
-/// Auto-disposed when the scanner screen leaves the tree — frees camera on
-/// low-RAM devices immediately.
 final cameraServiceProvider = Provider.autoDispose<CameraService>((ref) {
   final service = CameraService();
-  // Dispose the camera when this provider is no longer needed
   ref.onDispose(() => service.dispose());
   return service;
 });
 
-/// Provides the OCRService. Stateless, so a simple provider is fine.
 final ocrServiceProvider = Provider<OCRService>((ref) => OCRService());
+final llmServiceProvider = Provider<LLMService>((ref) => LLMService());
 
-/// The main ViewModel provider for the scanner screen.
+final ttsServiceProvider = Provider<TTSService>((ref) {
+  final service = TTSService();
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
+// ---------------------------------------------------------------------------
+// ScannerViewModel
+// ---------------------------------------------------------------------------
 final scannerViewModelProvider =
     NotifierProvider.autoDispose<ScannerViewModel, ScanState>(
   ScannerViewModel.new,
 );
 
-// ---------------------------------------------------------------------------
-// ScannerViewModel
-// ---------------------------------------------------------------------------
 class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
-  late final CameraService _cameraService;
-  late final OCRService _ocrService;
+  late final CameraService _camera;
+  late final OCRService _ocr;
+  late final LLMService _llm;
+  late final TTSService _tts;
 
   @override
   ScanState build() {
-    _cameraService = ref.read(cameraServiceProvider);
-    _ocrService = ref.read(ocrServiceProvider);
-
-    // Kick off camera initialization as soon as the ViewModel is created
-    _initializeCamera();
-
+    _camera = ref.read(cameraServiceProvider);
+    _ocr = ref.read(ocrServiceProvider);
+    _llm = ref.read(llmServiceProvider);
+    _tts = ref.read(ttsServiceProvider);
+    _initializeServices();
     return const ScanStateInitializing();
   }
 
-  // ---------------------------------------------------------------------------
-  // Public API (called by ScannerScreen)
-  // ---------------------------------------------------------------------------
-
-  /// Called when the user taps anywhere on the camera viewfinder.
   Future<void> onCaptureTapped() async {
-    // Ignore taps while already processing or initializing
     if (state is! ScanStateReady) return;
 
-    state = const ScanStateProcessing();
+    final language = ref.read(languageProvider);
+    final checkingMsg = language == 'bn' ? 'দেখা হচ্ছে...' : 'Checking...';
+
+    state = ScanStateProcessing(checkingMsg);
+    await _tts.speak(checkingMsg, language: language);
 
     try {
-      // Step 1: Capture a single frame
-      final imagePath = await _cameraService.captureFrame();
+      final imagePath = await _camera.captureFrame();
+      final rawText = await _ocr.extractText(imagePath);
 
-      // Step 2: Run on-device OCR
-      final rawText = await _ocrService.extractText(imagePath);
+      // ADD THIS TEMPORARILY:
+      debugPrint('=== OCR RAW TEXT ===\n$rawText\n=== END OCR ===');
 
-      // Step 3: Evaluate result
       if (rawText.trim().isEmpty) {
+        final msg = language == 'bn'
+            ? 'কোনো লেখা পাওয়া যায়নি। ক্যামেরা ওষুধের কাছে ধরুন।'
+            : 'No text found. Please hold the camera closer to the medicine.';
         state = const ScanStateNoTextFound();
-      } else {
-        // Hand off to LLM in Phase 3
-        state = ScanStateOCRComplete(rawText);
+        await _tts.speak(msg, language: language);
+        return;
       }
+
+      final result = await _llm.identifyMedicine(
+        rawOcrText: rawText,
+        language: language,
+      );
+
+      state = ScanStateResult(result);
+      await _tts.speak(result.spokenText, language: language);
+
     } on CameraServiceException catch (e) {
       state = ScanStateError(e.message);
+      await _tts.speak(e.message, language: language);
     } on OCRServiceException catch (e) {
       state = ScanStateError(e.message);
-    } catch (e) {
-      state = const ScanStateError(
-        'Something went wrong. Please try again.',
-      );
+      await _tts.speak(e.message, language: language);
+    } on LLMServiceException catch (e) {
+      state = ScanStateError(e.message);
+      await _tts.speak(e.message, language: language);
+    } catch (_) {
+      final msg = language == 'bn'
+          ? 'একটি সমস্যা হয়েছে। আবার চেষ্টা করুন।'
+          : 'Something went wrong. Please try again.';
+      state = ScanStateError(msg);
+      await _tts.speak(msg, language: language);
     }
   }
 
-  /// Resets the scanner back to ready state (the "Scan Again" action).
-  void reset() {
-    if (state is ScanStateReady) return; // Already ready
+  Future<void> reset() async {
+    await _tts.stop();
     state = const ScanStateReady();
   }
 
-  /// Called by the screen on app lifecycle changes (pause/resume).
-  Future<void> onAppPaused() => _cameraService.pause();
-  Future<void> onAppResumed() => _cameraService.resume();
+  Future<void> onAppPaused() async {
+    await _tts.stop();
+    await _camera.pause();
+  }
 
-  // ---------------------------------------------------------------------------
-  // Private
-  // ---------------------------------------------------------------------------
+  Future<void> onAppResumed() => _camera.resume();
 
-  Future<void> _initializeCamera() async {
+  Future<void> _initializeServices() async {
     try {
-      await _cameraService.initialize();
+      await Future.wait([_tts.initialize(), _camera.initialize()]);
+
+      final language = ref.read(languageProvider);
+      final promptMsg = language == 'bn'
+          ? 'ওষুধের দিকে ক্যামেরা ধরুন এবং স্ক্রিনে ট্যাপ করুন।'
+          : 'Please point the camera at the medicine and tap the screen.';
+
       state = const ScanStateReady();
+      await _tts.speak(promptMsg, language: language);
+
     } on CameraServiceException catch (e) {
       state = ScanStateError(e.message);
     }

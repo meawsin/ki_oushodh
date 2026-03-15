@@ -3,20 +3,11 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../services/camera_service.dart';
+import '../results/results_screen.dart';
 import 'scanner_viewmodel.dart';
 
-// ---------------------------------------------------------------------------
-// ScannerScreen
-//
-// The primary screen of Ki Oushodh. Design decisions:
-//   - Camera preview fills the ENTIRE screen — maximum viewfinder for elderly users
-//   - Tap anywhere to capture (PRD §4, step 4)
-//   - Minimal UI chrome — only essential elements visible during scanning
-//   - All state changes produce clear visual + (later) audio feedback
-//   - AppLifecycleObserver pauses camera when app backgrounds — saves battery
-//     and prevents camera resource locks on low-end devices
-// ---------------------------------------------------------------------------
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
 
@@ -26,6 +17,7 @@ class ScannerScreen extends ConsumerStatefulWidget {
 
 class _ScannerScreenState extends ConsumerState<ScannerScreen>
     with WidgetsBindingObserver {
+
   @override
   void initState() {
     super.initState();
@@ -38,8 +30,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     super.dispose();
   }
 
-  // Pause/resume camera with app lifecycle — critical for battery and resource
-  // management on low-end devices
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
     final vm = ref.read(scannerViewModelProvider.notifier);
@@ -60,25 +50,29 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     final scanState = ref.watch(scannerViewModelProvider);
     final cameraService = ref.watch(cameraServiceProvider);
 
+    // Route to ResultsScreen when we have a result
+    if (scanState is ScanStateResult) {
+      // Use addPostFrameCallback to avoid setState during build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ResultsScreen(result: scanState.result),
+          ),
+        ).then((_) {
+          // When user presses Scan Again and pops back, reset the state
+          ref.read(scannerViewModelProvider.notifier).reset();
+        });
+      });
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
-        // Full-screen tap target (PRD §4, step 4 + PRD §6 tap targets)
         onTap: () => ref.read(scannerViewModelProvider.notifier).onCaptureTapped(),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // ----------------------------------------------------------------
-            // Layer 1: Camera Preview (full screen)
-            // ----------------------------------------------------------------
-            _CameraPreviewLayer(
-              cameraService: cameraService,
-              scanState: scanState,
-            ),
-
-            // ----------------------------------------------------------------
-            // Layer 2: State-specific overlay UI
-            // ----------------------------------------------------------------
+            _CameraPreviewLayer(cameraService: cameraService, scanState: scanState),
             _OverlayLayer(scanState: scanState),
           ],
         ),
@@ -88,7 +82,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
 }
 
 // ---------------------------------------------------------------------------
-// Camera Preview Layer
+// Camera Preview
 // ---------------------------------------------------------------------------
 class _CameraPreviewLayer extends StatelessWidget {
   final CameraService cameraService;
@@ -101,11 +95,7 @@ class _CameraPreviewLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (scanState is ScanStateInitializing) {
-      return const ColoredBox(color: Colors.black);
-    }
-
-    if (scanState is ScanStateError) {
+    if (scanState is ScanStateInitializing || scanState is ScanStateError) {
       return const ColoredBox(color: Colors.black);
     }
 
@@ -114,9 +104,6 @@ class _CameraPreviewLayer extends StatelessWidget {
       return const ColoredBox(color: Colors.black);
     }
 
-    // Scale the preview to fill the screen regardless of aspect ratio.
-    // This avoids black bars which confuse elderly users — they expect to
-    // see what the camera sees, edge to edge.
     return SizedBox.expand(
       child: FittedBox(
         fit: BoxFit.cover,
@@ -131,11 +118,10 @@ class _CameraPreviewLayer extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Overlay Layer — renders different UI depending on state
+// Overlay Layer
 // ---------------------------------------------------------------------------
 class _OverlayLayer extends ConsumerWidget {
   final ScanState scanState;
-
   const _OverlayLayer({required this.scanState});
 
   @override
@@ -143,19 +129,27 @@ class _OverlayLayer extends ConsumerWidget {
     return switch (scanState) {
       ScanStateInitializing() => const _InitializingOverlay(),
       ScanStateReady()        => const _ReadyOverlay(),
-      ScanStateProcessing()   => const _ProcessingOverlay(),
-      ScanStateOCRComplete(:final rawText) => _OCRCompleteOverlay(rawText: rawText, ref: ref),
-      ScanStateNoTextFound()  => _NoTextOverlay(ref: ref),
-      ScanStateError(:final message) => _ErrorOverlay(message: message, ref: ref),
+      ScanStateProcessing(:final statusMessage) => _ProcessingOverlay(message: statusMessage),
+      ScanStateResult()       => const SizedBox.shrink(), // Navigation handled in parent
+      ScanStateNoTextFound()  => _MessageOverlay(
+          icon: Icons.search_off_rounded,
+          message: 'No text found.\nHold the camera closer to the medicine strip.',
+          ref: ref,
+        ),
+      ScanStateError(:final message) => _MessageOverlay(
+          icon: Icons.error_outline_rounded,
+          iconColor: const Color(0xFFFF5252),
+          message: message,
+          ref: ref,
+        ),
     };
   }
 }
 
 // ---------------------------------------------------------------------------
-// Individual overlay widgets
+// Overlay widgets
 // ---------------------------------------------------------------------------
 
-/// Shown while camera is starting up
 class _InitializingOverlay extends StatelessWidget {
   const _InitializingOverlay();
 
@@ -169,10 +163,7 @@ class _InitializingOverlay extends StatelessWidget {
           children: [
             CircularProgressIndicator(color: Colors.white),
             SizedBox(height: 24),
-            Text(
-              'Starting camera...',
-              style: TextStyle(color: Colors.white, fontSize: 20),
-            ),
+            Text('Starting...', style: TextStyle(color: Colors.white, fontSize: 20)),
           ],
         ),
       ),
@@ -180,34 +171,62 @@ class _InitializingOverlay extends StatelessWidget {
   }
 }
 
-/// Camera is live — show a minimal scanning guide
-class _ReadyOverlay extends StatelessWidget {
+class _ReadyOverlay extends ConsumerWidget {
   const _ReadyOverlay();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final language = ref.watch(languageProvider);
+
     return SafeArea(
       child: Column(
         children: [
-          // Top hint bar
+          // Language toggle bar at top
           Container(
-            width: double.infinity,
             color: Colors.black54,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-            child: const Text(
-              'Point camera at medicine and tap screen',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('কি ঔষধ',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                Row(
+                  children: [
+                    Text('EN',
+                        style: TextStyle(
+                          color: language == 'en' ? const Color(0xFFFFBF00) : Colors.white54,
+                          fontWeight: language == 'en' ? FontWeight.w800 : FontWeight.w400,
+                          fontSize: 15,
+                        )),
+                    Switch(
+                      value: language == 'bn',
+                      onChanged: (_) => ref.read(languageProvider.notifier).toggle(),
+                      activeColor: const Color(0xFFFFBF00),
+                    ),
+                    Text('বাং',
+                        style: TextStyle(
+                          color: language == 'bn' ? const Color(0xFFFFBF00) : Colors.white54,
+                          fontWeight: language == 'bn' ? FontWeight.w800 : FontWeight.w400,
+                          fontSize: 15,
+                        )),
+                  ],
+                ),
+              ],
             ),
           ),
 
-          // Scanning frame guide — helps users aim the camera
           const Spacer(),
-          _ScanningFrame(),
+
+          // Scan frame guide
+          Container(
+            width: MediaQuery.of(context).size.width * 0.85,
+            height: 160,
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFFFBF00), width: 3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+
           const Spacer(),
 
           // Bottom tap hint
@@ -215,14 +234,14 @@ class _ReadyOverlay extends StatelessWidget {
             width: double.infinity,
             color: Colors.black54,
             padding: const EdgeInsets.symmetric(vertical: 20),
-            child: const Text(
-              'TAP ANYWHERE TO SCAN',
+            child: Text(
+              language == 'bn' ? 'স্ক্যান করতে ট্যাপ করুন' : 'TAP ANYWHERE TO SCAN',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFFFFBF00), // Primary amber from AppTheme
+              style: const TextStyle(
+                color: Color(0xFFFFBF00),
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
+                letterSpacing: 1.2,
               ),
             ),
           ),
@@ -232,50 +251,26 @@ class _ReadyOverlay extends StatelessWidget {
   }
 }
 
-/// Visual scanning frame guide
-class _ScanningFrame extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.85,
-      height: 160,
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFFFBF00), width: 3),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Center(
-        child: Text(
-          'Medicine strip goes here',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 16,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Shown while capture + OCR is running
 class _ProcessingOverlay extends StatelessWidget {
-  const _ProcessingOverlay();
+  final String message;
+  const _ProcessingOverlay({required this.message});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: Colors.black87,
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(
+            const CircularProgressIndicator(
               color: Color(0xFFFFBF00),
               strokeWidth: 6,
             ),
-            SizedBox(height: 28),
+            const SizedBox(height: 28),
             Text(
-              'Checking...',
-              style: TextStyle(
+              message,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
@@ -288,108 +283,23 @@ class _ProcessingOverlay extends StatelessWidget {
   }
 }
 
-/// OCR succeeded — shows raw text and a continue button
-/// This will be replaced/extended in Phase 3 when Gemini is wired up
-class _OCRCompleteOverlay extends StatelessWidget {
-  final String rawText;
-  final WidgetRef ref;
-
-  const _OCRCompleteOverlay({required this.rawText, required this.ref});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black87,
-      padding: const EdgeInsets.all(24),
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Text Found:',
-              style: TextStyle(
-                color: Color(0xFFFFBF00),
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  rawText,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    height: 1.6,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Phase 3 will replace this with "Identify Medicine" → Gemini call
-            ElevatedButton(
-              onPressed: () =>
-                  ref.read(scannerViewModelProvider.notifier).reset(),
-              child: const Text('Scan Again'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// No text was found in the image
-class _NoTextOverlay extends StatelessWidget {
-  final WidgetRef ref;
-
-  const _NoTextOverlay({required this.ref});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black87,
-      padding: const EdgeInsets.all(24),
-      child: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(Icons.search_off_rounded, color: Colors.white54, size: 72),
-            const SizedBox(height: 24),
-            const Text(
-              'No text found.\nPlease hold the camera closer to the medicine strip.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 40),
-            ElevatedButton(
-              onPressed: () =>
-                  ref.read(scannerViewModelProvider.notifier).reset(),
-              child: const Text('Try Again'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// An error occurred
-class _ErrorOverlay extends StatelessWidget {
+class _MessageOverlay extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
   final String message;
   final WidgetRef ref;
 
-  const _ErrorOverlay({required this.message, required this.ref});
+  const _MessageOverlay({
+    required this.icon,
+    this.iconColor = Colors.white54,
+    required this.message,
+    required this.ref,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final language = ref.watch(languageProvider);
+
     return Container(
       color: Colors.black87,
       padding: const EdgeInsets.all(24),
@@ -398,8 +308,7 @@ class _ErrorOverlay extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(Icons.error_outline_rounded,
-                color: Color(0xFFFF5252), size: 72),
+            Icon(icon, color: iconColor, size: 72),
             const SizedBox(height: 24),
             Text(
               message,
@@ -413,9 +322,8 @@ class _ErrorOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 40),
             ElevatedButton(
-              onPressed: () =>
-                  ref.read(scannerViewModelProvider.notifier).reset(),
-              child: const Text('Try Again'),
+              onPressed: () => ref.read(scannerViewModelProvider.notifier).reset(),
+              child: Text(language == 'bn' ? 'আবার চেষ্টা করুন' : 'Try Again'),
             ),
           ],
         ),

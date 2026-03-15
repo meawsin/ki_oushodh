@@ -19,8 +19,8 @@ dependencies:
   # --- On-Device OCR (Google ML Kit) ---
   google_mlkit_text_recognition: ^0.13.1
 
-  # --- LLM: Official Google Gemini SDK ---
-  google_generative_ai: ^0.4.6
+  # --- LLM: Direct Gemini REST API via http (google_generative_ai deprecated) ---
+  http: ^1.2.2
 
   # --- Text-to-Speech ---
   flutter_tts: ^4.0.2
@@ -46,7 +46,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # Assets directory — add your icons and audio cues here in future phases
-  # assets:
-  #   - assets/images/
-  #   - assets/audio/
+  assets:
+    - assets/data/brand_index.json
+    - assets/data/medicine_db.json
