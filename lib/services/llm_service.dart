@@ -1,10 +1,4 @@
 // lib/services/llm_service.dart
-//
-// Medicine identification using:
-//   1. Local asset database — 13,929 Bangladeshi brand names (instant, offline)
-//   2. Wikipedia REST API fallback — for anything not in local DB
-//
-// No API key. No LLM. No network required for most Bangladeshi medicines.
 
 import 'dart:async';
 import 'dart:convert';
@@ -17,13 +11,9 @@ import 'package:http/http.dart' as http;
 import '../domain/models/scan_result.dart';
 
 class LLMService {
-  // Loaded once at first use, kept in memory
-  Map<String, String>? _brandIndex;     // brand_lower → generic_name
-  Map<String, String>? _medicineDb;     // generic_lower → summary_en
+  Map<String, String>? _brandIndex;
+  Map<String, String>? _medicineDb;
 
-  // --------------------------------------------------------------------------
-  // Public API — same interface as before, ViewModel unchanged
-  // --------------------------------------------------------------------------
   Future<ScanResult> identifyMedicine({
     required String rawOcrText,
     required String language,
@@ -38,21 +28,18 @@ class LLMService {
 
     await _ensureLoaded();
 
-    // Step 1: Extract the most likely brand/generic name from OCR text
-    final extracted = _extractCandidates(rawOcrText);
-    debugPrint('=== OCR CANDIDATES ===\n${extracted.join(", ")}\n===');
+    final candidates = _extractCandidates(rawOcrText);
+    debugPrint('=== OCR CANDIDATES ===\n${candidates.join(", ")}\n===');
 
-    // Step 2: Match against local BD database (13,929 brands)
-    final localResult = _lookupLocal(extracted, language);
+    final localResult = _lookupLocal(candidates, language);
     if (localResult != null) {
       debugPrint('=== LOCAL DB HIT: ${localResult.medicineName} ===');
       return localResult;
     }
 
-    // Step 3: Wikipedia fallback for unrecognized medicines
     debugPrint('=== LOCAL DB MISS — trying Wikipedia ===');
     try {
-      for (final candidate in extracted) {
+      for (final candidate in candidates) {
         final wikiResult = await _lookupWikipedia(candidate, language);
         if (wikiResult != null) return wikiResult;
       }
@@ -77,23 +64,14 @@ class LLMService {
     );
   }
 
-  // --------------------------------------------------------------------------
-  // Load JSON assets from Flutter asset bundle (runs once)
-  // --------------------------------------------------------------------------
   Future<void> _ensureLoaded() async {
     if (_brandIndex != null) return;
-
     try {
-      final indexStr =
-          await rootBundle.loadString('assets/data/brand_index.json');
-      final dbStr =
-          await rootBundle.loadString('assets/data/medicine_db.json');
-
+      final indexStr = await rootBundle.loadString('assets/data/brand_index.json');
+      final dbStr = await rootBundle.loadString('assets/data/medicine_db.json');
       _brandIndex = Map<String, String>.from(jsonDecode(indexStr));
       _medicineDb = Map<String, String>.from(jsonDecode(dbStr));
-
-      debugPrint(
-          '=== DB LOADED: ${_brandIndex!.length} brands, ${_medicineDb!.length} generics ===');
+      debugPrint('=== DB LOADED: ${_brandIndex!.length} brands, ${_medicineDb!.length} generics ===');
     } catch (e) {
       debugPrint('=== DB LOAD ERROR ===\n$e\n===');
       _brandIndex = {};
@@ -101,18 +79,8 @@ class LLMService {
     }
   }
 
-  // --------------------------------------------------------------------------
-  // Extract candidate medicine names from noisy OCR text
-  //
-  // Returns a ranked list — most likely first.
-  // Prioritizes words that appear in the DB over heuristics.
-  // --------------------------------------------------------------------------
   List<String> _extractCandidates(String rawText) {
-    final lines = rawText
-        .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty)
-        .toList();
+    final lines = rawText.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
 
     final noiseWords = {
       'usp', 'bp', 'ip', 'mg', 'ml', 'gm', 'mcg', 'iu', 'mfg', 'lic',
@@ -124,15 +92,14 @@ class LLMService {
 
     final candidates = <String>[];
 
-    // Pass 1: Check full line against DB (catches multi-word brand names)
+    // Pass 1: full line exact match (multi-word brands like "Entacyd Plus")
     for (final line in lines) {
-      final lineLower = line.toLowerCase().trim();
-      if (_brandIndex!.containsKey(lineLower)) {
-        candidates.insert(0, line.trim()); // Highest priority
+      if (_brandIndex!.containsKey(line.toLowerCase().trim())) {
+        candidates.insert(0, line.trim());
       }
     }
 
-    // Pass 2: Check individual words/tokens
+    // Pass 2: word-level exact match
     for (final line in lines) {
       final words = line.split(RegExp(r'[\s,./\\()\[\]]+'));
       for (final word in words) {
@@ -141,133 +108,141 @@ class LLMService {
         if (noiseWords.contains(clean.toLowerCase())) continue;
         if (RegExp(r'^\d+$').hasMatch(clean)) continue;
         if (!RegExp(r'^[a-zA-Z]').hasMatch(clean)) continue;
-
-        final wordLower = clean.toLowerCase();
-        if (_brandIndex!.containsKey(wordLower)) {
-          if (!candidates.contains(clean)) candidates.add(clean);
+        if (_brandIndex!.containsKey(clean.toLowerCase()) && !candidates.contains(clean)) {
+          candidates.add(clean);
         }
       }
     }
 
-    // Pass 3: Add remaining non-noise words as last-resort candidates
+    // Pass 3: fuzzy — last resort
     for (final line in lines) {
-      final firstWord = line.split(RegExp(r'[\s,.]')).first
+      final first = line.split(RegExp(r'[\s,.]')).first
           .replaceAll(RegExp(r"""['""`*!]+"""), '').trim();
-      if (firstWord.length >= 3 &&
-          !noiseWords.contains(firstWord.toLowerCase()) &&
-          RegExp(r'^[a-zA-Z]').hasMatch(firstWord) &&
-          !candidates.contains(firstWord)) {
-        candidates.add(firstWord);
+      if (first.length >= 3 &&
+          !noiseWords.contains(first.toLowerCase()) &&
+          RegExp(r'^[a-zA-Z]').hasMatch(first) &&
+          !candidates.contains(first)) {
+        candidates.add(first);
       }
     }
 
-    return candidates.take(5).toList(); // Max 5 candidates to try
+    return candidates.take(5).toList();
   }
 
-  // --------------------------------------------------------------------------
-  // Local database lookup
-  // --------------------------------------------------------------------------
   ScanResult? _lookupLocal(List<String> candidates, String language) {
     for (final candidate in candidates) {
-      final key = candidate.toLowerCase();
+      final key = candidate.toLowerCase().trim();
 
       // Exact brand match
-      final genericName = _brandIndex![key];
-      if (genericName != null) {
-        final summary = _medicineDb![genericName.toLowerCase()];
-        if (summary != null && summary.isNotEmpty) {
-          return ScanResult(
-            medicineName: '${_getDisplayBrand(candidate)} ($genericName)',
-            summary: summary,
-            language: language,
-          );
-        }
-        // Brand found but no summary — still return with generic name
-        return ScanResult(
-          medicineName: '${_getDisplayBrand(candidate)} ($genericName)',
-          summary: language == 'bn'
-              ? '$genericName গ্রুপের একটি ওষুধ।'
-              : 'A medicine containing $genericName.',
-          language: language,
-        );
-      }
+      String? genericName = _brandIndex![key];
 
-      // Fuzzy: check if candidate is contained in any brand name
-      // (handles OCR cutting off last chars e.g. "Entacy" → "Entacyd")
-      for (final brand in _brandIndex!.keys) {
-        if (brand.contains(key) || key.contains(brand)) {
-          final gName = _brandIndex![brand]!;
-          final summary = _medicineDb![gName.toLowerCase()];
-          if (summary != null) {
-            return ScanResult(
-              medicineName: '${_getDisplayBrand(brand)} ($gName)',
-              summary: summary,
-              language: language,
-            );
+      // Fuzzy match if exact fails
+      if (genericName == null) {
+        for (final brand in _brandIndex!.keys) {
+          if (brand.contains(key) || key.contains(brand)) {
+            genericName = _brandIndex![brand];
+            break;
           }
         }
       }
+
+      if (genericName == null) continue;
+
+      final rawSummary = _medicineDb![genericName.toLowerCase()] ?? '';
+      final summary = _simplify(rawSummary, genericName, language);
+
+      // Display brand name cleanly — capitalize first letter
+      final displayBrand = candidate[0].toUpperCase() + candidate.substring(1);
+
+      return ScanResult(
+        medicineName: displayBrand,
+        brandName: displayBrand,
+        genericName: genericName,
+        summary: summary,
+        language: language,
+      );
     }
     return null;
   }
 
-  String _getDisplayBrand(String raw) {
-    // Restore proper casing for display — capitalize first letter
-    if (raw.isEmpty) return raw;
-    return raw[0].toUpperCase() + raw.substring(1);
+  /// Converts clinical database text into plain accessible language.
+  ///
+  /// Database summaries sound like: "Paracetamol is indicated for fever,
+  /// common cold and influenza, headache..."
+  ///
+  /// We want: "This medicine is used for fever, headache, and pain relief."
+  String _simplify(String raw, String genericName, String language) {
+    if (raw.isEmpty) {
+      return language == 'bn'
+          ? '$genericName গ্রুপের একটি ওষুধ।'
+          : 'This medicine contains $genericName.';
+    }
+
+    // Strip clinical preamble patterns
+    String cleaned = raw
+        .replaceAll(RegExp(r'^[^:]+is indicated (for|in)[:\s]*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'^[^:]+is used (for|in)[:\s]*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'^[^:]+indicated[:\s]*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'^\s*[-•]\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    // Take only up to first 120 characters to keep it brief for TTS
+    if (cleaned.length > 120) {
+      final cut = cleaned.substring(0, 120);
+      final lastSpace = cut.lastIndexOf(' ');
+      cleaned = '${cut.substring(0, lastSpace)}...';
+    }
+
+    if (language == 'bn') {
+      return 'এই ওষুধটি $cleaned এর জন্য ব্যবহার করা হয়।';
+    } else {
+      // Ensure it starts naturally
+      if (!cleaned.toLowerCase().startsWith('this')) {
+        return 'This medicine is used for $cleaned';
+      }
+      return cleaned;
+    }
   }
 
-  // --------------------------------------------------------------------------
-  // Wikipedia REST API fallback
-  // --------------------------------------------------------------------------
-  Future<ScanResult?> _lookupWikipedia(
-      String candidate, String language) async {
+  Future<ScanResult?> _lookupWikipedia(String candidate, String language) async {
     final encoded = Uri.encodeComponent(candidate);
-    final url =
-        'https://en.wikipedia.org/api/rest_v1/page/summary/$encoded';
+    final url = 'https://en.wikipedia.org/api/rest_v1/page/summary/$encoded';
 
     final response = await http
         .get(Uri.parse(url), headers: {'User-Agent': 'KiOushodh/1.0'})
         .timeout(const Duration(seconds: 10));
 
-    debugPrint('=== WIKIPEDIA [$candidate]: ${response.statusCode} ===');
-
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
-      final description = json['description'] as String? ?? '';
+      final description = (json['description'] as String? ?? '').toLowerCase();
       final extract = json['extract'] as String? ?? '';
       final title = json['title'] as String? ?? candidate;
 
-      // Only accept results that are medicine-related
-      final medicinekeywords = [
-        'drug', 'medication', 'medicine', 'pharmaceutical', 'antibiotic',
-        'analgesic', 'treatment', 'therapy', 'clinical', 'dose',
-        'tablet', 'capsule', 'injection', 'generic',
-      ];
-      final combined = (description + extract).toLowerCase();
-      final isMedical =
-          medicinekeywords.any((kw) => combined.contains(kw));
-
-      if (isMedical && extract.isNotEmpty) {
-        final summary = _firstSentence(extract);
-        return ScanResult(
-          medicineName: title,
-          summary: summary,
-          language: language,
-        );
+      final medKeywords = ['drug','medication','medicine','antibiotic','analgesic','treatment','tablet','capsule'];
+      if (!medKeywords.any((kw) => description.contains(kw) || extract.toLowerCase().contains(kw))) {
+        return null;
       }
+
+      final summary = _firstSentence(extract);
+      return ScanResult(
+        medicineName: title,
+        brandName: candidate,
+        genericName: title,
+        summary: summary,
+        language: language,
+      );
     }
     return null;
   }
 
   String _firstSentence(String text) {
     final match = RegExp(r'([^.!?]+[.!?])').firstMatch(text);
-    final sentence = match?.group(1)?.trim() ?? text;
-    return sentence.length > 200 ? '${sentence.substring(0, 197)}...' : sentence;
+    final s = match?.group(1)?.trim() ?? text;
+    return s.length > 180 ? '${s.substring(0, 177)}...' : s;
   }
 }
 
-// --------------------------------------------------------------------------
 class LLMServiceException implements Exception {
   final String message;
   const LLMServiceException._raw(this.message);
@@ -276,8 +251,7 @@ class LLMServiceException implements Exception {
     required String en,
     required String bn,
     required String language,
-  }) =>
-      LLMServiceException._raw(language == 'bn' ? bn : en);
+  }) => LLMServiceException._raw(language == 'bn' ? bn : en);
 
   @override
   String toString() => 'LLMServiceException: $message';

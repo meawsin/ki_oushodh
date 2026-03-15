@@ -27,3 +27,7 @@ lib/core/constants/secrets.dart
 # OS
 .DS_Store
 Thumbs.db
+
+# Android Kotlin compiler error logs
+android/.kotlin/
+tash list

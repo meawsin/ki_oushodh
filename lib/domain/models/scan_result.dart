@@ -1,28 +1,20 @@
 // lib/domain/models/scan_result.dart
 
-// ---------------------------------------------------------------------------
-// ScanResult
-//
-// Immutable value object returned by LLMService.
-// Keeping name and summary separate lets the UI render them at different
-// font sizes — medicine name large, summary slightly smaller (PRD §6).
-// ---------------------------------------------------------------------------
 class ScanResult {
-  final String medicineName;
-  final String summary;
-  final String language; // 'en' or 'bn'
+  final String medicineName;   // Display name shown on screen
+  final String brandName;      // Just the brand (for history)
+  final String genericName;    // Just the generic (for history)
+  final String summary;        // Plain-language explanation
+  final String language;       // 'en' or 'bn'
 
   const ScanResult({
     required this.medicineName,
+    required this.brandName,
+    required this.genericName,
     required this.summary,
     required this.language,
   });
 
-  /// The full spoken string passed to TTSService.
-  /// Combines name + summary into one natural sentence for audio playback.
+  /// Spoken text — name first, then summary
   String get spokenText => '$medicineName. $summary';
-
-  @override
-  String toString() =>
-      'ScanResult(name: $medicineName, lang: $language)';
 }
