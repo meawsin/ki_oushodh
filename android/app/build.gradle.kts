@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.ki_oushodh"
+    namespace = "com.kioushodh.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.ki_oushodh"
+        applicationId = "com.kioushodh.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

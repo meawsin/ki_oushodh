@@ -1,4 +1,4 @@
-package com.example.ki_oushodh
+package com.kioushodh.app
 
 import io.flutter.embedding.android.FlutterActivity
 
