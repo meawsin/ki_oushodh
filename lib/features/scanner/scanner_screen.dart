@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/camera_service.dart';
 import '../history/history_screen.dart';
 import '../results/results_screen.dart';
+import '../settings/settings_screen.dart';
 import 'scanner_viewmodel.dart';
 
 class ScannerScreen extends ConsumerStatefulWidget {
@@ -312,51 +313,80 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
 
             const SizedBox(height: 12),
 
-            // ── History shortcut ───────────────────────────────────────
+            // ── History + Settings row ─────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      pageBuilder: (_, a, __) =>
-                          const HistoryScreen(),
-                      transitionsBuilder: (_, anim, __, child) =>
-                          FadeTransition(opacity: anim, child: child),
-                      transitionDuration: const Duration(milliseconds: 250),
-                    ),
-                  );
-                },
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF141414),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.history_rounded,
-                        color: Colors.white.withValues(alpha: 0.4),
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        language == 'bn' ? 'আগের স্ক্যান' : 'Scan History',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+              child: Row(
+                children: [
+                  // History
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        Navigator.of(context).push(PageRouteBuilder(
+                          pageBuilder: (_, a, __) => const HistoryScreen(),
+                          transitionsBuilder: (_, anim, __, child) =>
+                              FadeTransition(opacity: anim, child: child),
+                          transitionDuration: const Duration(milliseconds: 250),
+                        ));
+                      },
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF141414),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.06)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.history_rounded,
+                                color: Colors.white.withValues(alpha: 0.4),
+                                size: 18),
+                            const SizedBox(width: 7),
+                            Text(
+                              language == 'bn' ? 'ইতিহাস' : 'History',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+
+                  const SizedBox(width: 10),
+
+                  // Settings
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      Navigator.of(context).push(PageRouteBuilder(
+                        pageBuilder: (_, a, __) => const SettingsScreen(),
+                        transitionsBuilder: (_, anim, __, child) =>
+                            FadeTransition(opacity: anim, child: child),
+                        transitionDuration: const Duration(milliseconds: 250),
+                      ));
+                    },
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141414),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.06)),
+                      ),
+                      child: Icon(Icons.tune_rounded,
+                          color: Colors.white.withValues(alpha: 0.4),
+                          size: 20),
+                    ),
+                  ),
+                ],
               ),
             ),
 

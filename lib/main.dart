@@ -11,10 +11,14 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/date_utils.dart';
 import 'data/local/hive_setup.dart';
 import 'features/scanner/scanner_screen.dart';
+import 'features/settings/settings_screen.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('SharedPreferences not yet initialized.');
 });
+
+// Global navigator key — survives MaterialApp rebuilds
+final _navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,18 +52,32 @@ class KiOushodhApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
+    // High contrast: vivid yellow accent on borders, pure white text
+    final darkTheme = settings.highContrast
+        ? AppTheme.darkTheme.copyWith(
+            colorScheme: AppTheme.darkTheme.colorScheme.copyWith(
+              onSurface: Colors.white,
+              onSurfaceVariant: Colors.white.withValues(alpha: 0.8),
+              // Make borders much more visible
+              outline: const Color(0xFFFFBF00),
+            ),
+          )
+        : AppTheme.darkTheme;
+
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'কি ঔষধ',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
+      darkTheme: darkTheme,
+      themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       builder: (context, child) {
+        final scale = settings.fontScale.clamp(1.0, 1.6);
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(
-              MediaQuery.of(context).textScaler.scale(1.0).clamp(1.0, 1.3),
-            ),
+            textScaler: TextScaler.linear(scale),
           ),
           child: child!,
         );

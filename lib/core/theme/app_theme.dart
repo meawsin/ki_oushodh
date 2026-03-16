@@ -87,6 +87,7 @@ class AppTheme {
       // Card/surface variants
       surfaceContainerHighest: Color(0xFF1E1E1E),
       onSurfaceVariant: Color(0xFFCCCCCC),
+      outline: Color(0x0FFFFFFF),   // ~6% white — subtle default border
     ),
     textTheme: _buildTextTheme(const Color(0xFFF5F5F5)),
 
@@ -130,6 +131,7 @@ class AppTheme {
 
       surfaceContainerHighest: Color(0xFFE8E8E8),
       onSurfaceVariant: Color(0xFF333333),
+      outline: Color(0x1A000000),   // ~10% black — subtle default border
     ),
     textTheme: _buildTextTheme(const Color(0xFF0D0D0D)),
 
