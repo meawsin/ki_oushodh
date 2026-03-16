@@ -8,7 +8,6 @@
 // This is the correct behaviour for low-end Bangladeshi devices that ship
 // without Google TTS Bengali voice pack.
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 class TTSService {
@@ -21,7 +20,6 @@ class TTSService {
   Future<void> initialize() async {
     if (_isInitialized) return;
     _isBanglaAvailable = await _checkBanglaAvailability();
-    debugPrint('=== TTS Bangla available: $_isBanglaAvailable ===');
 
     await _tts.setVolume(1.0);
     await _tts.setSpeechRate(0.42);
@@ -69,14 +67,12 @@ class TTSService {
           if (l.startsWith('bn') ||
               l.contains('bengali') ||
               l.contains('bangla')) {
-            debugPrint('=== TTS: Found Bangla: $lang ===');
             return true;
           }
         }
       }
       return false;
     } catch (e) {
-      debugPrint('=== TTS check error: $e ===');
       return false;
     }
   }

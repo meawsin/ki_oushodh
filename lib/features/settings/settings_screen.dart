@@ -3,11 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../main.dart';
-import '../../services/storage_service.dart';
-import '../../services/tts_service.dart';
 import '../results/results_screen.dart';
 import '../scanner/scanner_viewmodel.dart';
 

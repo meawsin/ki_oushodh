@@ -2,7 +2,6 @@
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 class OCRService {
@@ -80,8 +79,7 @@ class OCRService {
     }
 
     if (signalCount < _minSignals) {
-      debugPrint('=== OCR VALIDATION FAILED — not medicine packaging ===');
-      debugPrint('=== Text: ${rawText.substring(0, rawText.length.clamp(0, 100))} ===');
+
       return language == 'bn'
           ? 'এটি ওষুধের প্যাকেট মনে হচ্ছে না। শুধুমাত্র ওষুধের স্ট্রিপ বা প্যাকেট স্ক্যান করুন।'
           : 'This doesn\'t look like medicine packaging. Please scan a medicine strip or box only.';

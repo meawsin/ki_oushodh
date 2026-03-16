@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
@@ -30,15 +29,11 @@ class LLMService {
     await _ensureLoaded();
 
     final candidates = _extractCandidates(rawOcrText);
-    debugPrint('=== OCR CANDIDATES ===\n${candidates.join(", ")}\n===');
 
     final localResult = _lookupLocal(candidates, language);
     if (localResult != null) {
-      debugPrint('=== LOCAL DB HIT: ${localResult.medicineName} ===');
       return localResult;
     }
-
-    debugPrint('=== LOCAL DB MISS — trying Wikipedia ===');
     try {
       for (final candidate in candidates) {
         final wikiResult = await _lookupWikipedia(candidate, language);
@@ -72,9 +67,7 @@ class LLMService {
       final dbStr = await rootBundle.loadString('assets/data/medicine_db.json');
       _brandIndex = Map<String, String>.from(jsonDecode(indexStr));
       _medicineDb = Map<String, String>.from(jsonDecode(dbStr));
-      debugPrint('=== DB LOADED: ${_brandIndex!.length} brands, ${_medicineDb!.length} generics ===');
     } catch (e) {
-      debugPrint('=== DB LOAD ERROR ===\n$e\n===');
       _brandIndex = {};
       _medicineDb = {};
     }

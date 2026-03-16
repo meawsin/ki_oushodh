@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/scan_result.dart';
 import '../../services/storage_service.dart';
-import '../../services/tts_service.dart';
 import '../scanner/scanner_viewmodel.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) => StorageService());
@@ -47,7 +46,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
         summary: widget.result.summary,
         language: widget.result.language,
       );
-    } catch (e) { debugPrint('History save error: $e'); }
+    } catch (_) {}
   }
 
   @override
