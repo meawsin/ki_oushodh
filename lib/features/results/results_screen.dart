@@ -21,31 +21,23 @@ class ResultsScreen extends ConsumerStatefulWidget {
 
 class _ResultsScreenState extends ConsumerState<ResultsScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _entryController;
-  late Animation<double> _fadeAnim;
-  late Animation<Offset> _slideAnim;
+  late AnimationController _ctrl;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
 
   @override
   void initState() {
     super.initState();
-    _entryController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 450),
-    );
-    _fadeAnim = CurvedAnimation(parent: _entryController, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.06),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic));
-    _entryController.forward();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 450));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
     _saveToHistory();
   }
 
   @override
-  void dispose() {
-    _entryController.dispose();
-    super.dispose();
-  }
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   Future<void> _saveToHistory() async {
     try {
@@ -55,13 +47,12 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
         summary: widget.result.summary,
         language: widget.result.language,
       );
-    } catch (e) {
-      debugPrint('History save error: $e');
-    }
+    } catch (e) { debugPrint('History save error: $e'); }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final language = ref.watch(languageProvider);
     final result = widget.result;
 
@@ -73,77 +64,46 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: cs.surface,
         body: SafeArea(
           child: FadeTransition(
-            opacity: _fadeAnim,
+            opacity: _fade,
             child: SlideTransition(
-              position: _slideAnim,
+              position: _slide,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── Header ─────────────────────────────────────────────
+                  // ── Header ───────────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                     child: Row(
                       children: [
-                        GestureDetector(
+                        _IconBtn(
+                          icon: Icons.arrow_back_rounded,
+                          cs: cs,
                           onTap: () {
                             HapticFeedback.selectionClick();
                             ref.read(ttsServiceProvider).stop();
                             Navigator.of(context).pop();
                           },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A1A1A),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08),
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.arrow_back_rounded,
-                              color: Colors.white.withValues(alpha: 0.7),
-                              size: 18,
-                            ),
-                          ),
                         ),
                         const Spacer(),
-                        // "Identified" badge
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A2800),
+                            color: cs.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: const Color(0xFFFFBF00).withValues(alpha: 0.3),
+                            border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Container(width: 6, height: 6,
+                                decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            Text(
+                              language == 'bn' ? 'ওষুধ চিহ্নিত' : 'Identified',
+                              style: TextStyle(color: cs.primary, fontSize: 11, fontWeight: FontWeight.w600),
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF4CAF50),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                language == 'bn' ? 'ওষুধ চিহ্নিত' : 'Identified',
-                                style: const TextStyle(
-                                  color: Color(0xFFFFBF00),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                          ]),
                         ),
                       ],
                     ),
@@ -151,7 +111,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
 
                   const SizedBox(height: 28),
 
-                  // ── Medicine name block ────────────────────────────────
+                  // ── Medicine name ────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
@@ -160,51 +120,32 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                         Text(
                           language == 'bn' ? 'ওষুধের নাম' : 'MEDICINE',
                           style: TextStyle(
-                            color: const Color(0xFFFFBF00).withValues(alpha: 0.7),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5,
-                          ),
+                            color: cs.primary.withValues(alpha: 0.7),
+                            fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5),
                         ),
                         const SizedBox(height: 6),
-                        Text(
-                          result.medicineName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 36,
-                            fontWeight: FontWeight.w800,
-                            height: 1.1,
-                            letterSpacing: -1,
-                          ),
-                        ),
+                        Text(result.medicineName,
+                            style: TextStyle(
+                              color: cs.onSurface,
+                              fontSize: 36, fontWeight: FontWeight.w800,
+                              height: 1.1, letterSpacing: -1)),
                         const SizedBox(height: 4),
-                        Text(
-                          result.genericName,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.35),
-                            fontSize: 13,
-                            fontStyle: FontStyle.italic,
-                            height: 1.4,
-                          ),
-                        ),
+                        Text(result.genericName,
+                            style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 13, fontStyle: FontStyle.italic, height: 1.4)),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 24),
-
-                  // ── Divider ────────────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Divider(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      height: 1,
-                    ),
+                    child: Divider(color: cs.outline, height: 1),
                   ),
-
                   const SizedBox(height: 24),
 
-                  // ── Use / summary ──────────────────────────────────────
+                  // ── Summary ──────────────────────────────────────────
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -214,24 +155,16 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                           Text(
                             language == 'bn' ? 'কী কাজে লাগে?' : 'USED FOR',
                             style: TextStyle(
-                              color: const Color(0xFFFFBF00).withValues(alpha: 0.7),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.5,
-                            ),
+                              color: cs.primary.withValues(alpha: 0.7),
+                              fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5),
                           ),
                           const SizedBox(height: 12),
                           Expanded(
                             child: SingleChildScrollView(
-                              child: Text(
-                                result.summary,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.65,
-                                ),
-                              ),
+                              child: Text(result.summary,
+                                  style: TextStyle(
+                                    color: cs.onSurface,
+                                    fontSize: 20, fontWeight: FontWeight.w400, height: 1.65)),
                             ),
                           ),
                         ],
@@ -239,51 +172,40 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                     ),
                   ),
 
-                  // ── Bangla TTS notice (only when bn selected + unavailable) ──
-                  if (result.language == 'bn' &&
-                      !ref.read(ttsServiceProvider).isBanglaAvailable)
+                  // ── TTS notice ───────────────────────────────────────
+                  if (result.language == 'bn' && !ref.read(ttsServiceProvider).isBanglaAvailable)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A1400),
+                          color: cs.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFFFFBF00).withValues(alpha: 0.2),
-                          ),
+                          border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.volume_off_rounded,
-                                color: const Color(0xFFFFBF00).withValues(alpha: 0.6),
-                                size: 14),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'বাংলায় পড়তে Play Store থেকে Google TTS → Bengali ইনস্টল করুন',
-                                style: TextStyle(
-                                  color: const Color(0xFFFFBF00).withValues(alpha: 0.7),
-                                  fontSize: 10,
-                                  height: 1.4,
-                                ),
-                              ),
+                        child: Row(children: [
+                          Icon(Icons.volume_off_rounded, color: cs.primary.withValues(alpha: 0.6), size: 14),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'বাংলায় পড়তে Play Store থেকে Google TTS → Bengali ইনস্টল করুন',
+                              style: TextStyle(color: cs.primary.withValues(alpha: 0.7), fontSize: 10, height: 1.4),
                             ),
-                          ],
-                        ),
+                          ),
+                        ]),
                       ),
                     ),
 
-                  const SizedBox(height: 8),
-
-                  // ── Action buttons ─────────────────────────────────────
+                  // ── Action buttons ───────────────────────────────────
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                     child: Row(
                       children: [
-                        // Play button
-                        GestureDetector(
+                        _IconBtn(
+                          icon: Icons.volume_up_rounded,
+                          cs: cs,
+                          accentBorder: true,
+                          size: 56,
                           onTap: () {
                             HapticFeedback.lightImpact();
                             ref.read(ttsServiceProvider).speak(
@@ -292,27 +214,8 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                               englishFallback: result.spokenTextEn,
                             );
                           },
-                          child: Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A1A1A),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFFFBF00).withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.volume_up_rounded,
-                              color: Color(0xFFFFBF00),
-                              size: 22,
-                            ),
-                          ),
                         ),
-
                         const SizedBox(width: 12),
-
-                        // Scan Again button
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
@@ -323,11 +226,11 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                             child: Container(
                               height: 56,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFBF00),
+                                color: cs.primary,
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFFFBF00).withValues(alpha: 0.2),
+                                    color: cs.primary.withValues(alpha: 0.2),
                                     blurRadius: 16,
                                     offset: const Offset(0, 4),
                                   ),
@@ -335,11 +238,9 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                               ),
                               child: Center(
                                 child: Text(
-                                  language == 'bn'
-                                      ? 'আবার স্ক্যান করুন'
-                                      : 'Scan Again',
-                                  style: const TextStyle(
-                                    color: Color(0xFF1A1A00),
+                                  language == 'bn' ? 'আবার স্ক্যান করুন' : 'Scan Again',
+                                  style: TextStyle(
+                                    color: cs.onPrimary,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -358,6 +259,43 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+  final bool accentBorder;
+  final double size;
+
+  const _IconBtn({
+    required this.icon,
+    required this.cs,
+    required this.onTap,
+    this.accentBorder = false,
+    this.size = 40,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(size == 40 ? 12 : 16),
+          border: Border.all(
+            color: accentBorder ? cs.primary.withValues(alpha: 0.3) : cs.outline,
+          ),
+        ),
+        child: Icon(icon,
+            color: accentBorder ? cs.primary : cs.onSurfaceVariant,
+            size: size == 40 ? 18 : 22),
       ),
     );
   }

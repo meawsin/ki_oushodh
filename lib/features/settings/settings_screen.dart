@@ -16,7 +16,7 @@ import '../scanner/scanner_viewmodel.dart';
 // ---------------------------------------------------------------------------
 class AppSettings {
   final bool isDarkMode;
-  final double fontScale;    // 1.0 = normal, 1.3 = large, 1.6 = very large
+  final double fontScale;
   final bool saveHistory;
   final bool highContrast;
 
@@ -41,7 +41,7 @@ class AppSettings {
 }
 
 // ---------------------------------------------------------------------------
-// Settings Provider
+// Provider
 // ---------------------------------------------------------------------------
 final settingsProvider =
     NotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
@@ -63,28 +63,24 @@ class SettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
-  Future<void> setDarkMode(bool value) async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    await prefs.setBool(_darkKey, value);
-    state = state.copyWith(isDarkMode: value);
+  Future<void> setDarkMode(bool v) async {
+    await ref.read(sharedPreferencesProvider).setBool(_darkKey, v);
+    state = state.copyWith(isDarkMode: v);
   }
 
-  Future<void> setFontScale(double value) async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    await prefs.setDouble(_fontKey, value);
-    state = state.copyWith(fontScale: value);
+  Future<void> setFontScale(double v) async {
+    await ref.read(sharedPreferencesProvider).setDouble(_fontKey, v);
+    state = state.copyWith(fontScale: v);
   }
 
-  Future<void> setSaveHistory(bool value) async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    await prefs.setBool(_historyKey, value);
-    state = state.copyWith(saveHistory: value);
+  Future<void> setSaveHistory(bool v) async {
+    await ref.read(sharedPreferencesProvider).setBool(_historyKey, v);
+    state = state.copyWith(saveHistory: v);
   }
 
-  Future<void> setHighContrast(bool value) async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    await prefs.setBool(_contrastKey, value);
-    state = state.copyWith(highContrast: value);
+  Future<void> setHighContrast(bool v) async {
+    await ref.read(sharedPreferencesProvider).setBool(_contrastKey, v);
+    state = state.copyWith(highContrast: v);
   }
 }
 
@@ -98,15 +94,16 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final language = ref.watch(languageProvider);
+    final cs = Theme.of(context).colorScheme;
 
     String t(String bn, String en) => language == 'bn' ? bn : en;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: cs.surface,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header ─────────────────────────────────────────────────
+            // ── Header ──────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Row(
@@ -117,28 +114,24 @@ class SettingsScreen extends ConsumerWidget {
                       Navigator.of(context).pop();
                     },
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 40, height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1A),
+                        color: cs.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.08)),
+                        border: Border.all(color: cs.outline),
                       ),
                       child: Icon(Icons.arrow_back_rounded,
-                          color: Colors.white.withValues(alpha: 0.7), size: 18),
+                          color: cs.onSurfaceVariant, size: 18),
                     ),
                   ),
                   const SizedBox(width: 14),
-                  Text(
-                    t('সেটিংস', 'Settings'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
+                  Text(t('সেটিংস', 'Settings'),
+                      style: TextStyle(
+                        color: cs.onSurface,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      )),
                 ],
               ),
             ),
@@ -150,11 +143,10 @@ class SettingsScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
 
-                  // ── DISPLAY ──────────────────────────────────────────
-                  _SectionHeader(label: t('ডিসপ্লে', 'Display')),
+                  // ── DISPLAY ───────────────────────────────────────
+                  _SectionLabel(t('ডিসপ্লে', 'Display'), cs),
 
-                  // Dark mode
-                  _SettingsTile(
+                  _Tile(
                     icon: settings.isDarkMode
                         ? Icons.dark_mode_rounded
                         : Icons.light_mode_rounded,
@@ -162,8 +154,10 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle: settings.isDarkMode
                         ? t('ডার্ক মোড চালু', 'Dark mode on')
                         : t('লাইট মোড চালু', 'Light mode on'),
-                    trailing: _Switch(
+                    cs: cs,
+                    trailing: _ThemedSwitch(
                       value: settings.isDarkMode,
+                      cs: cs,
                       onChanged: (v) {
                         HapticFeedback.selectionClick();
                         ref.read(settingsProvider.notifier).setDarkMode(v);
@@ -171,15 +165,16 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ),
 
-                  // High contrast
-                  _SettingsTile(
+                  _Tile(
                     icon: Icons.contrast_rounded,
                     title: t('উচ্চ কন্ট্রাস্ট', 'High contrast'),
                     subtitle: settings.highContrast
                         ? t('চালু — বর্ডার উজ্জ্বল', 'On — bright borders')
                         : t('বন্ধ', 'Off'),
-                    trailing: _Switch(
+                    cs: cs,
+                    trailing: _ThemedSwitch(
                       value: settings.highContrast,
+                      cs: cs,
                       onChanged: (v) {
                         HapticFeedback.selectionClick();
                         ref.read(settingsProvider.notifier).setHighContrast(v);
@@ -189,12 +184,13 @@ class SettingsScreen extends ConsumerWidget {
 
                   const SizedBox(height: 8),
 
-                  // ── FONT SIZE ─────────────────────────────────────────
-                  _SectionHeader(label: t('লেখার আকার', 'Text size')),
+                  // ── TEXT SIZE ─────────────────────────────────────
+                  _SectionLabel(t('লেখার আকার', 'Text size'), cs),
 
                   _FontSizePicker(
                     value: settings.fontScale,
                     language: language,
+                    cs: cs,
                     onChanged: (v) {
                       HapticFeedback.selectionClick();
                       ref.read(settingsProvider.notifier).setFontScale(v);
@@ -203,22 +199,23 @@ class SettingsScreen extends ConsumerWidget {
 
                   const SizedBox(height: 8),
 
-                  // ── LANGUAGE ─────────────────────────────────────────
-                  _SectionHeader(label: t('ভাষা', 'Language')),
-
-                  _LanguagePicker(),
+                  // ── LANGUAGE ──────────────────────────────────────
+                  _SectionLabel(t('ভাষা', 'Language'), cs),
+                  _LanguagePicker(cs: cs),
 
                   const SizedBox(height: 8),
 
-                  // ── HISTORY ──────────────────────────────────────────
-                  _SectionHeader(label: t('ইতিহাস', 'History')),
+                  // ── HISTORY ───────────────────────────────────────
+                  _SectionLabel(t('ইতিহাস', 'History'), cs),
 
-                  _SettingsTile(
+                  _Tile(
                     icon: Icons.history_rounded,
                     title: t('স্ক্যান সংরক্ষণ', 'Save scan history'),
                     subtitle: t('৩০ দিন পর্যন্ত', 'Kept for 30 days'),
-                    trailing: _Switch(
+                    cs: cs,
+                    trailing: _ThemedSwitch(
                       value: settings.saveHistory,
+                      cs: cs,
                       onChanged: (v) {
                         HapticFeedback.selectionClick();
                         ref.read(settingsProvider.notifier).setSaveHistory(v);
@@ -226,31 +223,33 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ),
 
-                  _SettingsTile(
+                  _Tile(
                     icon: Icons.delete_outline_rounded,
                     title: t('সব ইতিহাস মুছুন', 'Clear all history'),
-                    subtitle: t('এটি পূর্বাবস্থায় ফেরানো যাবে না',
-                        'Cannot be undone'),
-                    iconColor: const Color(0xFFFF5252),
-                    onTap: () => _confirmClearHistory(context, ref, language),
+                    subtitle: t('পূর্বাবস্থায় ফেরানো যাবে না', 'Cannot be undone'),
+                    cs: cs,
+                    iconColor: cs.error,
+                    onTap: () => _confirmClear(context, ref, cs, language),
                   ),
 
                   const SizedBox(height: 8),
 
-                  // ── ABOUT ─────────────────────────────────────────────
-                  _SectionHeader(label: t('অ্যাপ সম্পর্কে', 'About')),
+                  // ── ABOUT ─────────────────────────────────────────
+                  _SectionLabel(t('অ্যাপ সম্পর্কে', 'About'), cs),
 
-                  _SettingsTile(
+                  _Tile(
                     icon: Icons.info_outline_rounded,
-                    title: t('কি ঔষধ', 'Ki Oushodh'),
+                    title: 'কি ঔষধ',
                     subtitle: 'Version 1.0.0 · MVP',
+                    cs: cs,
                   ),
 
-                  _SettingsTile(
+                  _Tile(
                     icon: Icons.medication_rounded,
                     title: t('ডেটাবেস', 'Database'),
                     subtitle: t('১৩,৯২৯টি বাংলাদেশি ওষুধ',
                         '13,929 Bangladeshi medicines'),
+                    cs: cs,
                   ),
 
                   const SizedBox(height: 32),
@@ -263,101 +262,86 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmClearHistory(
-      BuildContext context, WidgetRef ref, String language) {
+  void _confirmClear(BuildContext context, WidgetRef ref,
+      ColorScheme cs, String language) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF141414),
+      backgroundColor: cs.surfaceContainerLow,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 36, height: 4,
+            decoration: BoxDecoration(
+                color: cs.outline, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+          Text(
+            language == 'bn' ? 'সব ইতিহাস মুছবেন?' : 'Clear all history?',
+            style: TextStyle(
+                color: cs.onSurface, fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: () async {
+              await ref.read(storageServiceProvider).deleteAll();
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: Container(
+              width: double.infinity, height: 52,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(2),
+                color: cs.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.error.withValues(alpha: 0.3)),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              language == 'bn' ? 'সব ইতিহাস মুছবেন?' : 'Clear all history?',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 24),
-            GestureDetector(
-              onTap: () async {
-                await ref.read(storageServiceProvider).deleteAll();
-                if (context.mounted) Navigator.pop(context);
-              },
-              child: Container(
-                width: double.infinity,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A0000),
-                  borderRadius: BorderRadius.circular(14),
-                  border:
-                      Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                ),
-                child: Center(
-                  child: Text(
-                    language == 'bn' ? 'হ্যাঁ, মুছুন' : 'Clear all',
-                    style: const TextStyle(
-                        color: Color(0xFFFF5252),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700),
-                  ),
+              child: Center(
+                child: Text(
+                  language == 'bn' ? 'হ্যাঁ, মুছুন' : 'Clear all',
+                  style: TextStyle(
+                      color: cs.error, fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: double.infinity,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Center(
-                  child: Text(
-                    language == 'bn' ? 'বাতিল' : 'Cancel',
-                    style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500),
-                  ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: double.infinity, height: 52,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Text(
+                  language == 'bn' ? 'বাতিল' : 'Cancel',
+                  style: TextStyle(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 15, fontWeight: FontWeight.w500),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ]),
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Font size picker — three explicit buttons (Normal / Large / Very Large)
-// Elderly users should not have to deal with a slider
+// Font size picker
 // ---------------------------------------------------------------------------
 class _FontSizePicker extends StatelessWidget {
   final double value;
   final String language;
+  final ColorScheme cs;
   final ValueChanged<double> onChanged;
 
   const _FontSizePicker({
     required this.value,
     required this.language,
+    required this.cs,
     required this.onChanged,
   });
 
@@ -373,9 +357,9 @@ class _FontSizePicker extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
+        color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: cs.outline),
       ),
       child: Row(
         children: options.map((opt) {
@@ -388,24 +372,17 @@ class _FontSizePicker extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 height: 52,
                 decoration: BoxDecoration(
-                  color: selected
-                      ? const Color(0xFFFFBF00)
-                      : Colors.transparent,
+                  color: selected ? cs.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: selected
-                          ? const Color(0xFF1A1A00)
-                          : Colors.white.withValues(alpha: 0.4),
-                      fontSize: fontSize,
-                      fontWeight: selected
-                          ? FontWeight.w800
-                          : FontWeight.w400,
-                    ),
-                  ),
+                  child: Text(label,
+                      style: TextStyle(
+                        color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+                        fontSize: fontSize,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w400,
+                      )),
                 ),
               ),
             ),
@@ -420,30 +397,30 @@ class _FontSizePicker extends StatelessWidget {
 // Language picker
 // ---------------------------------------------------------------------------
 class _LanguagePicker extends ConsumerWidget {
+  final ColorScheme cs;
+  const _LanguagePicker({required this.cs});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final language = ref.watch(languageProvider);
-
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
+        color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: cs.outline),
       ),
       child: Row(
         children: [
           _LangOption(
-            label: 'বাংলা',
-            sublabel: 'Bangla',
-            selected: language == 'bn',
+            label: 'বাংলা', sublabel: 'Bangla',
+            selected: language == 'bn', cs: cs,
             onTap: () => ref.read(languageProvider.notifier).setLanguage('bn'),
           ),
           _LangOption(
-            label: 'English',
-            sublabel: 'ইংরেজি',
-            selected: language == 'en',
+            label: 'English', sublabel: 'ইংরেজি',
+            selected: language == 'en', cs: cs,
             onTap: () => ref.read(languageProvider.notifier).setLanguage('en'),
           ),
         ],
@@ -453,16 +430,14 @@ class _LanguagePicker extends ConsumerWidget {
 }
 
 class _LangOption extends StatelessWidget {
-  final String label;
-  final String sublabel;
+  final String label, sublabel;
   final bool selected;
+  final ColorScheme cs;
   final VoidCallback onTap;
 
   const _LangOption({
-    required this.label,
-    required this.sublabel,
-    required this.selected,
-    required this.onTap,
+    required this.label, required this.sublabel,
+    required this.selected, required this.cs, required this.onTap,
   });
 
   @override
@@ -474,7 +449,7 @@ class _LangOption extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           height: 60,
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFFFBF00) : Colors.transparent,
+            color: selected ? cs.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: FittedBox(
@@ -482,26 +457,19 @@ class _LangOption extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: selected
-                        ? const Color(0xFF1A1A00)
-                        : Colors.white.withValues(alpha: 0.7),
-                    fontSize: 16,
-                    fontWeight:
-                        selected ? FontWeight.w800 : FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  sublabel,
-                  style: TextStyle(
-                    color: selected
-                        ? const Color(0xFF1A1A00).withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.3),
-                    fontSize: 11,
-                  ),
-                ),
+                Text(label,
+                    style: TextStyle(
+                      color: selected ? cs.onPrimary : cs.onSurface.withValues(alpha: 0.7),
+                      fontSize: 16,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                    )),
+                Text(sublabel,
+                    style: TextStyle(
+                      color: selected
+                          ? cs.onPrimary.withValues(alpha: 0.6)
+                          : cs.onSurfaceVariant,
+                      fontSize: 11,
+                    )),
               ],
             ),
           ),
@@ -512,41 +480,21 @@ class _LangOption extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Reusable components
+// Reusable tile
 // ---------------------------------------------------------------------------
-
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  const _SectionHeader({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          color: const Color(0xFFFFBF00).withValues(alpha: 0.7),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.5,
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsTile extends StatelessWidget {
+class _Tile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
   final Color? iconColor;
+  final ColorScheme cs;
 
-  const _SettingsTile({
+  const _Tile({
     required this.icon,
     required this.title,
+    required this.cs,
     this.subtitle,
     this.trailing,
     this.onTap,
@@ -555,85 +503,93 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final outline = Theme.of(context).colorScheme.outline;
+    final effectiveIconColor = iconColor ?? cs.primary;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFF111111),
+          color: cs.surfaceContainerLow,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: outline),
+          border: Border.all(color: cs.outline),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: (iconColor ?? const Color(0xFFFFBF00))
-                    .withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                icon,
-                color: iconColor ?? const Color(0xFFFFBF00),
-                size: 18,
-              ),
+        child: Row(children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: effectiveIconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.35),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (trailing != null) trailing!,
-            if (onTap != null && trailing == null)
-              Icon(Icons.chevron_right_rounded,
-                  color: Colors.white.withValues(alpha: 0.2), size: 20),
-          ],
-        ),
+            child: Icon(icon, color: effectiveIconColor, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title,
+                  style: TextStyle(
+                      color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w600)),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(subtitle!,
+                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+              ],
+            ]),
+          ),
+          if (trailing != null) trailing!,
+          if (onTap != null && trailing == null)
+            Icon(Icons.chevron_right_rounded,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4), size: 20),
+        ]),
       ),
     );
   }
 }
 
-class _Switch extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// Section label
+// ---------------------------------------------------------------------------
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  final ColorScheme cs;
+  const _SectionLabel(this.label, this.cs);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+      child: Text(label.toUpperCase(),
+          style: TextStyle(
+            color: cs.primary.withValues(alpha: 0.7),
+            fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5,
+          )),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Themed switch
+// ---------------------------------------------------------------------------
+class _ThemedSwitch extends StatelessWidget {
   final bool value;
+  final ColorScheme cs;
   final ValueChanged<bool> onChanged;
 
-  const _Switch({required this.value, required this.onChanged});
+  const _ThemedSwitch({
+    required this.value,
+    required this.cs,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Switch(
       value: value,
       onChanged: onChanged,
-      activeColor: const Color(0xFFFFBF00),
-      activeTrackColor: const Color(0xFFFFBF00).withValues(alpha: 0.3),
-      inactiveThumbColor: Colors.white.withValues(alpha: 0.3),
-      inactiveTrackColor: Colors.white.withValues(alpha: 0.08),
+      activeThumbColor: cs.onPrimary,
+      activeTrackColor: cs.primary,
+      inactiveThumbColor: cs.onSurfaceVariant.withValues(alpha: 0.6),
+      inactiveTrackColor: cs.surfaceContainerHighest,
     );
   }
 }
