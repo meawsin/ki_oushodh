@@ -38,7 +38,23 @@ No typing. No reading required. Works on low-end devices with poor internet.
 
 ## Screenshots
 
-> *(Add screenshots here)*
+A visual overview of the **Ki Oushodh (কি ঔষধ)** interface, showcasing the high-contrast accessibility features, light/dark modes, and the core user journey.
+
+<p align="center">
+  <img src="screenshots/ki_oushodh(Scanning).jpg" width="250" alt="Scanning Medicine Blister Pack" />
+  <img src="screenshots/ki_oushodh(Result).png" width="250" alt="Medicine Result Screen (Dark Mode)" />
+  <img src="screenshots/ki_oushodh(settings).png" width="250" alt="Accessibility Settings" />
+</p>
+
+<p align="center">
+  <img src="screenshots/ki_oushodh(lightMode).jpg" width="250" alt="Scanner Screen (Light Mode)" />
+  <img src="screenshots/ki_oushodh(lightModeResult).png" width="250" alt="Medicine Result Screen (Light Mode)" />
+  <img src="screenshots/ki_oushodh(lightModeHistory).png" width="250" alt="30-Day Scan History" />
+</p>
+
+<p align="center">
+  <img src="screenshots/ki_oushodh(lightModeFailed).png" width="250" alt="Error Handling & User Feedback" />
+</p>
 
 ---
 
