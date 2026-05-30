@@ -26,10 +26,11 @@ No typing. No reading required. Works on low-end devices with poor internet.
 
 - **Camera OCR** — on-device text recognition via Google ML Kit (no internet needed for scanning)
 - **13,929 Bangladeshi medicines** — local database of BD brand names mapped to generic names, sourced from the [Assorted Medicine Dataset of Bangladesh](https://www.kaggle.com/datasets/ahmedshahriarsakib/assorted-medicine-dataset-of-bangladesh)
-- **Wikipedia fallback** — for medicines not in the local DB
-- **Text-to-Speech** — reads results aloud in Bangla (bn-BD) or English
+- **Wikipedia fallback** — for medicines not in the local DB (requires internet)
+- **Text-to-Speech** — reads results aloud in Bangla (bn-BD) or English, with automatic fallback to English on devices without a Bengali voice pack
+- **Natural TTS voice** — sanitized output (mg → milligram, ellipsis removed) at a warm speech rate; not robotic
 - **Medicine-only validation** — rejects non-medicine packaging (chips, beverages, etc.)
-- **30-day scan history** — saved locally, auto-deleted after 30 days
+- **30-day scan history** — saved locally, auto-deleted after 30 days; swipe to delete individual entries
 - **Accessibility settings** — font size (Normal / Large / X-Large), dark/light mode, high contrast
 - **Fully offline for BD medicines** — no API key, no cloud dependency for the core feature
 - **Low-end device optimised** — 720p capture, single-shot (no streaming), memory-safe
@@ -37,8 +38,6 @@ No typing. No reading required. Works on low-end devices with poor internet.
 ---
 
 ## Screenshots
-
-A visual overview of the **Ki Oushodh (কি ঔষধ)** interface, showcasing the high-contrast accessibility features, light/dark modes, and the core user journey.
 
 <p align="center">
   <img src="screenshots/ki_oushodh(Scanning).png" width="250" alt="Scanning Medicine Blister Pack" />
@@ -66,7 +65,7 @@ A visual overview of the **Ki Oushodh (কি ঔষধ)** interface, showcasing
 | State management | Riverpod |
 | Camera | CameraX via `camera` package |
 | OCR | Google ML Kit Text Recognition (Latin) |
-| Local database | Hive (NoSQL) |
+| Local database | Hive (NoSQL) — adapter written manually, no build_runner required |
 | Medicine lookup | Local JSON asset (13,929 entries) + Wikipedia REST API |
 | Text-to-Speech | flutter_tts (OS native engine) |
 | Preferences | shared_preferences |
@@ -75,29 +74,28 @@ A visual overview of the **Ki Oushodh (কি ঔষধ)** interface, showcasing
 
 ## Architecture
 
-Feature-first (Domain-Driven) with MVVM pattern.
+Feature-first with MVVM pattern.
 
 ```
 lib/
 ├── core/
-│   ├── constants/      # Colors, typography, Bangla translations
-│   ├── theme/          # Light/dark/high-contrast themes
-│   └── utils/          # Date utils, 30-day cleanup
+│   ├── constants/      # Bangla translations map
+│   ├── theme/          # Light / dark / high-contrast themes
+│   └── utils/          # Date utils, 30-day history cleanup
 ├── data/
-│   ├── local/          # Hive setup
-│   └── network/        # HTTP client
+│   └── local/          # Hive setup
 ├── domain/
-│   └── models/         # ScanResult, ScanHistoryModel
+│   └── models/         # ScanResult, ScanHistoryModel + hand-written Hive adapter
 ├── features/
-│   ├── scanner/        # Camera screen + ViewModel
-│   ├── results/        # Results screen
-│   ├── history/        # 30-day history screen
+│   ├── scanner/        # Camera screen + ViewModel (3-step processing states)
+│   ├── results/        # Results screen (TTS play/stop, copy to clipboard)
+│   ├── history/        # 30-day history (swipe-to-delete, tap to re-read)
 │   └── settings/       # Accessibility settings
 └── services/
     ├── camera_service.dart
     ├── ocr_service.dart
-    ├── llm_service.dart    # Local DB + Wikipedia lookup
-    ├── tts_service.dart
+    ├── llm_service.dart      # Local DB lookup + Wikipedia fallback
+    ├── tts_service.dart      # TTS with sanitization + Bangla detection
     └── storage_service.dart
 ```
 
@@ -119,19 +117,7 @@ cd ki_oushodh
 flutter pub get
 ```
 
-### Add the medicine database assets
-
-Download the JSON assets and place them in `assets/data/`:
-- `brand_index.json` — 13,929 brand → generic name mappings
-- `medicine_db.json` — generic name → plain English summary
-
-Then register in `pubspec.yaml`:
-```yaml
-flutter:
-  assets:
-    - assets/data/brand_index.json
-    - assets/data/medicine_db.json
-```
+> No `build_runner` step needed — the Hive adapter is written manually in `scan_history_model.g.dart`.
 
 ### Run
 
@@ -151,9 +137,9 @@ Output: `build/app/outputs/flutter-apk/app-release.apk`
 
 ## Bangla Text-to-Speech
 
-The app detects whether the device has Bengali TTS installed. If not, it falls back to reading the English summary aloud instead of garbling Unicode text.
+The app detects whether the device has Bengali TTS installed. If not, it automatically falls back to reading the English summary aloud — silence is never used as a fallback, and Unicode is never passed to an engine that can't render it.
 
-**To enable Bangla speech:**
+**To enable Bangla speech on your device:**
 Play Store → Google Text-to-Speech → Settings → Install voice data → Bengali
 
 ---
@@ -164,21 +150,21 @@ Medicine data sourced from the [Assorted Medicine Dataset of Bangladesh](https:/
 
 ---
 
-## Scope — Iteration 1 (MVP)
+## Scope — Iteration 1
 
 **In scope:**
 - Language toggle (Bangla / English)
 - Camera capture + on-device OCR
 - Medicine identification from local database
 - Text-to-Speech result readout
-- 30-day scan history
+- 30-day scan history with swipe-to-delete
 - Accessibility settings (font size, theme, contrast)
 
 **Intentionally excluded (future versions):**
-- Dosage/frequency instructions (regulatory liability)
+- Dosage / frequency instructions (regulatory liability)
 - User accounts or cloud sync
-- Barcode/QR scanning
-- Multiple language support beyond Bangla and English
+- Barcode / QR scanning
+- Languages beyond Bangla and English
 
 ---
 
