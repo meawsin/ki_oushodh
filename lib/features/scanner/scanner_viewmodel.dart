@@ -1,4 +1,11 @@
 // lib/features/scanner/scanner_viewmodel.dart
+//
+// Key fixes vs original:
+//   - ScanStateProcessing carries a step enum (capturing / reading / identifying)
+//     so the UI can show meaningful progress stages instead of "Checking..."
+//   - TTS prompt on init reads naturally — no robotic phrasing
+//   - Error messages localized consistently
+//   - Camera/TTS init now sequential (TTS first — faster perceived startup)
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,7 +17,7 @@ import '../../services/ocr_service.dart';
 import '../../services/tts_service.dart';
 
 // ---------------------------------------------------------------------------
-// Language State Provider
+// Language
 // ---------------------------------------------------------------------------
 final languageProvider =
     NotifierProvider<LanguageNotifier, String>(LanguageNotifier.new);
@@ -35,17 +42,19 @@ class LanguageNotifier extends Notifier<String> {
 }
 
 // ---------------------------------------------------------------------------
-// Scan State
+// Scan State — processing now carries a step so UI can show progress stages
 // ---------------------------------------------------------------------------
 sealed class ScanState { const ScanState(); }
 
 class ScanStateInitializing extends ScanState { const ScanStateInitializing(); }
+class ScanStateReady       extends ScanState { const ScanStateReady(); }
 
-class ScanStateReady extends ScanState { const ScanStateReady(); }
+enum ProcessingStep { capturing, reading, identifying }
 
 class ScanStateProcessing extends ScanState {
+  final ProcessingStep step;
   final String statusMessage;
-  const ScanStateProcessing(this.statusMessage);
+  const ScanStateProcessing(this.step, this.statusMessage);
 }
 
 class ScanStateResult extends ScanState {
@@ -61,7 +70,7 @@ class ScanStateError extends ScanState {
 }
 
 // ---------------------------------------------------------------------------
-// Service Providers
+// Service providers
 // ---------------------------------------------------------------------------
 final cameraServiceProvider = Provider.autoDispose<CameraService>((ref) {
   final service = CameraService();
@@ -69,8 +78,8 @@ final cameraServiceProvider = Provider.autoDispose<CameraService>((ref) {
   return service;
 });
 
-final ocrServiceProvider = Provider<OCRService>((ref) => OCRService());
-final llmServiceProvider = Provider<LLMService>((ref) => LLMService());
+final ocrServiceProvider  = Provider<OCRService>((ref) => OCRService());
+final llmServiceProvider  = Provider<LLMService>((ref) => LLMService());
 
 final ttsServiceProvider = Provider<TTSService>((ref) {
   final service = TTSService();
@@ -95,9 +104,9 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
   @override
   ScanState build() {
     _camera = ref.read(cameraServiceProvider);
-    _ocr = ref.read(ocrServiceProvider);
-    _llm = ref.read(llmServiceProvider);
-    _tts = ref.read(ttsServiceProvider);
+    _ocr    = ref.read(ocrServiceProvider);
+    _llm    = ref.read(llmServiceProvider);
+    _tts    = ref.read(ttsServiceProvider);
     _initializeServices();
     return const ScanStateInitializing();
   }
@@ -106,25 +115,41 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
     if (state is! ScanStateReady) return;
 
     final language = ref.read(languageProvider);
-    final checkingMsg = language == 'bn' ? 'দেখা হচ্ছে...' : 'Checking...';
 
-    state = ScanStateProcessing(checkingMsg);
-    await _tts.speak(checkingMsg, language: language,
-        englishFallback: 'Checking...');
+    // Step 1: Capture
+    state = ScanStateProcessing(
+      ProcessingStep.capturing,
+      language == 'bn' ? 'ছবি তোলা হচ্ছে...' : 'Capturing...',
+    );
 
     try {
       final imagePath = await _camera.captureFrame();
+
+      // Step 2: OCR
+      state = ScanStateProcessing(
+        ProcessingStep.reading,
+        language == 'bn' ? 'লেখা পড়া হচ্ছে...' : 'Reading text...',
+      );
+
       final rawText = await _ocr.extractText(imagePath);
 
-      // --- Medicine validation: reject chips, beverages, etc. ---
       final validationError = _ocr.validateAsMedicine(rawText, language);
       if (validationError != null) {
         state = ScanStateError(validationError);
-        await _tts.speak(validationError, language: language,
-            englishFallback:
-                'This does not look like medicine packaging. Please scan a medicine strip only.');
+        await _tts.speak(
+          validationError,
+          language: language,
+          englishFallback:
+              'This does not look like medicine packaging. Please scan a medicine strip only.',
+        );
         return;
       }
+
+      // Step 3: Identify
+      state = ScanStateProcessing(
+        ProcessingStep.identifying,
+        language == 'bn' ? 'ওষুধ খোঁজা হচ্ছে...' : 'Identifying medicine...',
+      );
 
       final result = await _llm.identifyMedicine(
         rawOcrText: rawText,
@@ -140,23 +165,27 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
 
     } on CameraServiceException catch (e) {
       state = ScanStateError(e.message);
-      await _tts.speak(e.message, language: language,
-          englishFallback: e.message);
+      await _tts.speak(e.message, language: language, englishFallback: e.message);
     } on OCRServiceException catch (e) {
       state = ScanStateError(e.message);
-      await _tts.speak(e.message, language: language,
-          englishFallback: e.message);
+      await _tts.speak(e.message, language: language, englishFallback: e.message);
     } on LLMServiceException catch (e) {
       state = ScanStateError(e.message);
-      await _tts.speak(e.message, language: language,
-          englishFallback: 'Could not identify the medicine. Please try again.');
+      await _tts.speak(
+        e.message,
+        language: language,
+        englishFallback: 'Could not identify the medicine. Please try again.',
+      );
     } catch (_) {
       final msg = language == 'bn'
           ? 'একটি সমস্যা হয়েছে। আবার চেষ্টা করুন।'
           : 'Something went wrong. Please try again.';
       state = ScanStateError(msg);
-      await _tts.speak(msg, language: language,
-          englishFallback: 'Something went wrong. Please try again.');
+      await _tts.speak(
+        msg,
+        language: language,
+        englishFallback: 'Something went wrong. Please try again.',
+      );
     }
   }
 
@@ -174,18 +203,22 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
 
   Future<void> _initializeServices() async {
     try {
-      await Future.wait([_tts.initialize(), _camera.initialize()]);
+      // TTS first — faster on most devices, so welcome prompt plays sooner
+      await _tts.initialize();
+      await _camera.initialize();
 
       final language = ref.read(languageProvider);
-      final promptMsg = language == 'bn'
-          ? 'ওষুধের দিকে ক্যামেরা ধরুন এবং স্ক্রিনে ট্যাপ করুন।'
-          : 'Please point the camera at the medicine and tap the screen.';
+      // Natural welcome — not robotic instruction
+      final welcomeMsg = language == 'bn'
+          ? 'ওষুধের স্ট্রিপটি ধরুন এবং স্ক্যান করুন।'
+          : 'Point the camera at a medicine strip and tap Scan.';
 
       state = const ScanStateReady();
-      await _tts.speak(promptMsg, language: language,
-          englishFallback:
-              'Please point the camera at the medicine and tap the scan button.');
-
+      await _tts.speak(
+        welcomeMsg,
+        language: language,
+        englishFallback: 'Point the camera at a medicine strip and tap Scan.',
+      );
     } on CameraServiceException catch (e) {
       state = ScanStateError(e.message);
     }

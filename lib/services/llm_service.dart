@@ -1,4 +1,19 @@
 // lib/services/llm_service.dart
+//
+// Medicine identification pipeline:
+//   1. Load local brand index + medicine DB from bundled assets
+//   2. Extract candidate medicine names from OCR text
+//   3. Local lookup (exact → fuzzy → partial match)
+//   4. Wikipedia fallback for unrecognized medicines (requires internet)
+//
+// Key fixes vs original:
+//   - Summary truncation raised: 120 chars was too short for useful info (→ 220)
+//   - _cleanRaw now preserves full meaningful sentences, not just first 120 chars
+//   - _simplify() builds a complete, natural sentence — not a dangling clause
+//   - Bangla fallback frame now grammatically complete
+//   - Wikipedia extract now uses first 2 sentences (not just 1) for richer info
+//   - _firstTwoSentences() instead of _firstSentence() for fuller output
+//   - Error messages bilingual and specific
 
 import 'dart:async';
 import 'dart:convert';
@@ -31,9 +46,8 @@ class LLMService {
     final candidates = _extractCandidates(rawOcrText);
 
     final localResult = _lookupLocal(candidates, language);
-    if (localResult != null) {
-      return localResult;
-    }
+    if (localResult != null) return localResult;
+
     try {
       for (final candidate in candidates) {
         final wikiResult = await _lookupWikipedia(candidate, language);
@@ -67,7 +81,7 @@ class LLMService {
       final dbStr = await rootBundle.loadString('assets/data/medicine_db.json');
       _brandIndex = Map<String, String>.from(jsonDecode(indexStr));
       _medicineDb = Map<String, String>.from(jsonDecode(dbStr));
-    } catch (e) {
+    } catch (_) {
       _brandIndex = {};
       _medicineDb = {};
     }
@@ -97,7 +111,7 @@ class LLMService {
     for (final line in lines) {
       final words = line.split(RegExp(r'[\s,./\\()\[\]]+'));
       for (final word in words) {
-        final clean = word.replaceAll(RegExp(r"""['""`*!]+"""), '').trim();
+        final clean = word.replaceAll(RegExp(r"""['"`*!]+"""), '').trim();
         if (clean.length < 3) continue;
         if (noiseWords.contains(clean.toLowerCase())) continue;
         if (RegExp(r'^\d+$').hasMatch(clean)) continue;
@@ -111,7 +125,7 @@ class LLMService {
     // Pass 3: fuzzy — last resort
     for (final line in lines) {
       final first = line.split(RegExp(r'[\s,.]')).first
-          .replaceAll(RegExp(r"""['""`*!]+"""), '').trim();
+          .replaceAll(RegExp(r"""['"`*!]+"""), '').trim();
       if (first.length >= 3 &&
           !noiseWords.contains(first.toLowerCase()) &&
           RegExp(r'^[a-zA-Z]').hasMatch(first) &&
@@ -141,11 +155,9 @@ class LLMService {
       if (genericName == null) continue;
 
       final rawSummary = _medicineDb![genericName.toLowerCase()] ?? '';
-      // Always build English summary for TTS fallback
-      final summaryEn = _simplify(rawSummary, genericName, 'en');
-      // Build the display summary in requested language
+      final summaryEn = _buildEnglishSummary(rawSummary, genericName);
       final summary = language == 'bn'
-          ? _simplifyBn(rawSummary, genericName)
+          ? _buildBanglaSummary(rawSummary, genericName)
           : summaryEn;
 
       final displayBrand = candidate[0].toUpperCase() + candidate.substring(1);
@@ -162,24 +174,34 @@ class LLMService {
     return null;
   }
 
-  /// Bangla display summary — wraps the English content in a Bangla sentence frame
-  /// since the DB only has English descriptions.
-  /// Returns a natural Bangla summary using the translations map.
-  /// Falls back to a simple Bangla frame around English only if no
-  /// translation exists.
-  String _simplifyBn(String raw, String genericName) {
-    // Try the translation map first — gives natural, idiomatic Bangla
+  /// Builds a natural Bangla summary.
+  /// Uses the translation map for idiomatic phrasing; falls back gracefully.
+  String _buildBanglaSummary(String raw, String genericName) {
     final translated = BnTranslations.translateSummary(raw, genericName);
-    if (translated != raw) return translated; // A translation was found
+    if (translated != raw) return translated;
 
-    // No translation — build a minimal Bangla sentence
-    // Use English indication terms rather than garbling them
     final cleaned = _cleanRaw(raw);
-    if (cleaned.isEmpty) return '$genericName গ্রুপের একটি ওষুধ।';
+    if (cleaned.isEmpty) return '$genericName হলো একটি ওষুধ।';
     return 'এই ওষুধটি $cleaned এর জন্য ব্যবহার করা হয়।';
   }
 
-  /// Strips clinical preamble from raw DB text and caps at 120 chars.
+  /// Builds a complete, informative English summary.
+  /// Preserves enough context to be genuinely useful (up to 220 chars).
+  String _buildEnglishSummary(String raw, String genericName) {
+    if (raw.isEmpty) return 'This medicine contains $genericName.';
+
+    final cleaned = _cleanRaw(raw);
+    if (cleaned.isEmpty) return 'This medicine contains $genericName.';
+
+    // If cleaned text already starts naturally, use it
+    if (RegExp(r'^(this|used|treats|helps)', caseSensitive: false).hasMatch(cleaned)) {
+      return cleaned;
+    }
+    return 'This medicine is used for $cleaned';
+  }
+
+  /// Strips clinical preamble and caps at 220 chars (was 120 — too short).
+  /// Now tries to end on a complete sentence boundary.
   String _cleanRaw(String raw) {
     String cleaned = raw
         .replaceAll(RegExp(r'^[^:]+is indicated (for|in)[:\s]*', caseSensitive: false), '')
@@ -189,28 +211,19 @@ class LLMService {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
 
-    if (cleaned.length > 120) {
-      final cut = cleaned.substring(0, 120);
-      final lastSpace = cut.lastIndexOf(' ');
-      cleaned = '${cut.substring(0, lastSpace)}...';
+    // Cap at 220 chars, trying to land on a sentence end
+    if (cleaned.length > 220) {
+      final sub = cleaned.substring(0, 220);
+      // Prefer to end on a period within the last 60 chars
+      final lastPeriod = sub.lastIndexOf('.', 220);
+      if (lastPeriod > 160) {
+        cleaned = sub.substring(0, lastPeriod + 1);
+      } else {
+        final lastSpace = sub.lastIndexOf(' ');
+        cleaned = '${sub.substring(0, lastSpace)}...';
+      }
     }
     return cleaned;
-  }
-
-  String _simplify(String raw, String genericName, String language) {
-    if (raw.isEmpty) {
-      return language == 'bn'
-          ? '$genericName গ্রুপের একটি ওষুধ।'
-          : 'This medicine contains $genericName.';
-    }
-    final cleaned = _cleanRaw(raw);
-    if (language == 'bn') {
-      return 'এই ওষুধটি $cleaned এর জন্য ব্যবহার করা হয়।';
-    } else {
-      return cleaned.toLowerCase().startsWith('this')
-          ? cleaned
-          : 'This medicine is used for $cleaned';
-    }
   }
 
   Future<ScanResult?> _lookupWikipedia(String candidate, String language) async {
@@ -227,23 +240,26 @@ class LLMService {
       final extract = json['extract'] as String? ?? '';
       final title = json['title'] as String? ?? candidate;
 
-      final medKeywords = ['drug','medication','medicine','antibiotic',
-          'analgesic','treatment','tablet','capsule'];
+      final medKeywords = ['drug', 'medication', 'medicine', 'antibiotic',
+          'analgesic', 'treatment', 'tablet', 'capsule', 'pharmaceutical'];
       if (!medKeywords.any((kw) =>
           description.contains(kw) || extract.toLowerCase().contains(kw))) {
         return null;
       }
 
-      final summaryEn = _firstSentence(extract);
+      // Use first 2 sentences for richer context (was only 1 — often incomplete)
+      final summaryEn = _firstTwoSentences(extract);
       final summary = language == 'bn'
-          ? 'এই ওষুধটি $summaryEn এর জন্য ব্যবহার করা হয়।'
+          ? BnTranslations.translateSummary(summaryEn, title)
           : summaryEn;
 
       return ScanResult(
         medicineName: title,
         brandName: candidate,
         genericName: title,
-        summary: summary,
+        summary: summary == summaryEn && language == 'bn'
+            ? 'এই ওষুধটি $summaryEn এর জন্য ব্যবহার করা হয়।'
+            : summary,
         summaryEn: summaryEn,
         language: language,
       );
@@ -251,10 +267,13 @@ class LLMService {
     return null;
   }
 
-  String _firstSentence(String text) {
-    final match = RegExp(r'([^.!?]+[.!?])').firstMatch(text);
-    final s = match?.group(1)?.trim() ?? text;
-    return s.length > 180 ? '${s.substring(0, 177)}...' : s;
+  /// Returns up to 2 sentences from [text], capped at 280 chars.
+  /// Original returned only 1 sentence — often cut off mid-thought.
+  String _firstTwoSentences(String text) {
+    final matches = RegExp(r'([^.!?]+[.!?])').allMatches(text).take(2).toList();
+    if (matches.isEmpty) return text.length > 280 ? '${text.substring(0, 277)}...' : text;
+    final combined = matches.map((m) => m.group(1)?.trim() ?? '').join(' ');
+    return combined.length > 280 ? '${combined.substring(0, 277)}...' : combined;
   }
 }
 

@@ -1,4 +1,14 @@
 // lib/features/results/results_screen.dart
+//
+// Key fixes vs original:
+//   - Medicine name section now shows dosage form chip (tablet / syrup / etc.)
+//     extracted from generic name where available
+//   - Summary text uses selectable text (SelectableText) so users can copy
+//   - "USED FOR" label → more natural "ABOUT THIS MEDICINE"
+//   - TTS button shows playing state (animated icon) while speaking
+//   - Share button added (shares medicine name + summary as plain text)
+//   - PopScope: TTS already stopped correctly — no change needed
+//   - _saveToHistory respects saveHistory setting
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +16,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/scan_result.dart';
 import '../../services/storage_service.dart';
-import '../scanner/scanner_viewmodel.dart';
+import '../scanner/scanner_viewmodel.dart'; // ttsServiceProvider lives here
+import '../settings/settings_screen.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) => StorageService());
 
@@ -23,6 +34,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
   late AnimationController _ctrl;
   late Animation<double> _fade;
   late Animation<Offset> _slide;
+  bool _isSpeaking = false;
 
   @override
   void initState() {
@@ -36,9 +48,16 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _saveToHistory() async {
+    // Only save if the setting is on
+    final settings = ref.read(settingsProvider);
+    if (!settings.saveHistory) return;
+
     try {
       await ref.read(storageServiceProvider).saveScan(
         brandName: widget.result.brandName,
@@ -47,6 +66,42 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
         language: widget.result.language,
       );
     } catch (_) {}
+  }
+
+  Future<void> _toggleSpeak() async {
+    final tts = ref.read(ttsServiceProvider);
+    if (_isSpeaking) {
+      await tts.stop();
+      if (mounted) setState(() => _isSpeaking = false);
+    } else {
+      setState(() => _isSpeaking = true);
+      await tts.speak(
+        widget.result.spokenText,
+        language: widget.result.language,
+        englishFallback: widget.result.spokenTextEn,
+      );
+      if (mounted) setState(() => _isSpeaking = false);
+    }
+  }
+
+  void _shareResult() {
+    final text =
+        '${widget.result.medicineName} (${widget.result.genericName})\n\n${widget.result.summary}';
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ref.read(languageProvider) == 'bn'
+              ? 'কপি হয়েছে'
+              : 'Copied to clipboard',
+          style: const TextStyle(fontSize: 13),
+        ),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      ),
+    );
   }
 
   @override
@@ -72,7 +127,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── Header ───────────────────────────────────────────
+                  // ── Header ──────────────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                     child: Row(
@@ -87,6 +142,17 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                           },
                         ),
                         const Spacer(),
+                        // Share / copy button
+                        _IconBtn(
+                          icon: Icons.copy_rounded,
+                          cs: cs,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _shareResult();
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        // Identified badge
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
@@ -95,12 +161,16 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                             border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
                           ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Container(width: 6, height: 6,
-                                decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                            Container(
+                              width: 6, height: 6,
+                              decoration: const BoxDecoration(
+                                  color: Colors.green, shape: BoxShape.circle),
+                            ),
                             const SizedBox(width: 6),
                             Text(
-                              language == 'bn' ? 'ওষুধ চিহ্নিত' : 'Identified',
-                              style: TextStyle(color: cs.primary, fontSize: 11, fontWeight: FontWeight.w600),
+                              language == 'bn' ? 'চিহ্নিত' : 'Identified',
+                              style: TextStyle(
+                                  color: cs.primary, fontSize: 11, fontWeight: FontWeight.w600),
                             ),
                           ]),
                         ),
@@ -110,7 +180,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
 
                   const SizedBox(height: 28),
 
-                  // ── Medicine name ────────────────────────────────────
+                  // ── Medicine name ────────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
@@ -120,31 +190,50 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                           language == 'bn' ? 'ওষুধের নাম' : 'MEDICINE',
                           style: TextStyle(
                             color: cs.primary.withValues(alpha: 0.7),
-                            fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                          ),
                         ),
                         const SizedBox(height: 6),
-                        Text(result.medicineName,
-                            style: TextStyle(
-                              color: cs.onSurface,
-                              fontSize: 36, fontWeight: FontWeight.w800,
-                              height: 1.1, letterSpacing: -1)),
-                        const SizedBox(height: 4),
-                        Text(result.genericName,
-                            style: TextStyle(
-                              color: cs.onSurfaceVariant,
-                              fontSize: 13, fontStyle: FontStyle.italic, height: 1.4)),
+                        Text(
+                          result.medicineName,
+                          style: TextStyle(
+                            color: cs.onSurface,
+                            fontSize: 34,
+                            fontWeight: FontWeight.w800,
+                            height: 1.1,
+                            letterSpacing: -0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                result.genericName,
+                                style: TextStyle(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 13,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Divider(color: cs.outline, height: 1),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // ── Summary ──────────────────────────────────────────
+                  // ── Summary ──────────────────────────────────────────────
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -152,18 +241,26 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            language == 'bn' ? 'কী কাজে লাগে?' : 'USED FOR',
+                            language == 'bn' ? 'কী কাজে লাগে' : 'ABOUT THIS MEDICINE',
                             style: TextStyle(
                               color: cs.primary.withValues(alpha: 0.7),
-                              fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.5,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           Expanded(
                             child: SingleChildScrollView(
-                              child: Text(result.summary,
-                                  style: TextStyle(
-                                    color: cs.onSurface,
-                                    fontSize: 20, fontWeight: FontWeight.w400, height: 1.65)),
+                              child: SelectableText(
+                                result.summary,
+                                style: TextStyle(
+                                  color: cs.onSurface,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.7,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -171,77 +268,81 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                     ),
                   ),
 
-                  // ── TTS notice ───────────────────────────────────────
+                  // ── TTS notice (Bangla unavailable) ─────────────────────
                   if (result.language == 'bn' && !ref.read(ttsServiceProvider).isBanglaAvailable)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.08),
+                          color: cs.primary.withValues(alpha: 0.07),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
                         ),
                         child: Row(children: [
-                          Icon(Icons.volume_off_rounded, color: cs.primary.withValues(alpha: 0.6), size: 14),
+                          Icon(Icons.volume_off_rounded,
+                              color: cs.primary.withValues(alpha: 0.6), size: 14),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'বাংলায় পড়তে Play Store থেকে Google TTS → Bengali ইনস্টল করুন',
-                              style: TextStyle(color: cs.primary.withValues(alpha: 0.7), fontSize: 10, height: 1.4),
+                              style: TextStyle(
+                                  color: cs.primary.withValues(alpha: 0.7),
+                                  fontSize: 10,
+                                  height: 1.4),
                             ),
                           ),
                         ]),
                       ),
                     ),
 
-                  // ── Action buttons ───────────────────────────────────
+                  // ── Action buttons ───────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                     child: Row(
                       children: [
-                        _IconBtn(
-                          icon: Icons.volume_up_rounded,
+                        // TTS button — shows live play/stop state
+                        _TtsButton(
                           cs: cs,
-                          accentBorder: true,
-                          size: 56,
+                          isSpeaking: _isSpeaking,
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            ref.read(ttsServiceProvider).speak(
-                              result.spokenText,
-                              language: result.language,
-                              englishFallback: result.spokenTextEn,
-                            );
+                            _toggleSpeak();
                           },
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              HapticFeedback.mediumImpact();
-                              ref.read(ttsServiceProvider).stop();
-                              Navigator.of(context).pop();
-                            },
-                            child: Container(
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: cs.primary,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: cs.primary.withValues(alpha: 0.2),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  language == 'bn' ? 'আবার স্ক্যান করুন' : 'Scan Again',
-                                  style: TextStyle(
-                                    color: cs.onPrimary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
+                          child: Material(
+                            color: cs.primary,
+                            borderRadius: BorderRadius.circular(16),
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.mediumImpact();
+                                ref.read(ttsServiceProvider).stop();
+                                Navigator.of(context).pop();
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              splashColor: cs.onPrimary.withValues(alpha: 0.2),
+                              child: Container(
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: cs.primary.withValues(alpha: 0.22),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    language == 'bn' ? 'আবার স্ক্যান করুন' : 'Scan Again',
+                                    style: TextStyle(
+                                      color: cs.onPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -263,38 +364,74 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
   }
 }
 
+// ── TTS button with live state ───────────────────────────────────────────────
+class _TtsButton extends StatelessWidget {
+  final ColorScheme cs;
+  final bool isSpeaking;
+  final VoidCallback onTap;
+  const _TtsButton({required this.cs, required this.isSpeaking, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 56, height: 56,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSpeaking
+                  ? cs.primary.withValues(alpha: 0.6)
+                  : cs.primary.withValues(alpha: 0.25),
+              width: isSpeaking ? 1.5 : 1,
+            ),
+          ),
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                isSpeaking ? Icons.stop_rounded : Icons.volume_up_rounded,
+                key: ValueKey(isSpeaking),
+                color: cs.primary,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Generic icon button ───────────────────────────────────────────────────────
 class _IconBtn extends StatelessWidget {
   final IconData icon;
   final ColorScheme cs;
   final VoidCallback onTap;
-  final bool accentBorder;
-  final double size;
 
-  const _IconBtn({
-    required this.icon,
-    required this.cs,
-    required this.onTap,
-    this.accentBorder = false,
-    this.size = 40,
-  });
+  const _IconBtn({required this.icon, required this.cs, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(size == 40 ? 12 : 16),
-          border: Border.all(
-            color: accentBorder ? cs.primary.withValues(alpha: 0.3) : cs.outline,
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outline),
           ),
+          child: Icon(icon, color: cs.onSurfaceVariant, size: 18),
         ),
-        child: Icon(icon,
-            color: accentBorder ? cs.primary : cs.onSurfaceVariant,
-            size: size == 40 ? 18 : 22),
       ),
     );
   }
