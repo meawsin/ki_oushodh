@@ -90,140 +90,279 @@ class LLMService {
   List<String> _extractCandidates(String rawText) {
     final lines = rawText.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
 
+    final dosagePattern = RegExp(
+      r'\b\d+(\.\d+)?\s*(mg|ml|gm|g|mcg|iu|%|v/v|w/v|w/w)\b',
+      caseSensitive: false,
+    );
+    final standaloneNumberPattern = RegExp(r'\b\d+\b');
+
     final noiseWords = {
       'usp', 'bp', 'ip', 'mg', 'ml', 'gm', 'mcg', 'iu', 'mfg', 'lic',
-      'no', 'double', 'strength', 'gel', 'dried', 'hydroxide', 'and',
-      'the', 'for', 'tablet', 'tablets', 'capsule', 'capsules', 'syrup',
+      'no', 'batch', 'exp', 'date', 'mrp', 'tk', 'bdt', 'double', 'strength',
+      'gel', 'dried', 'hydroxide', 'and', 'the', 'for', 'with',
+      'tablet', 'tablets', 'capsule', 'capsules', 'syrup', 'suspension',
       'injection', 'square', 'pls', 'plas', 'ltd', 'limited', 'lab',
-      'laboratories', 'pharma', 'pharmaceuticals', 'plus', 'forte',
+      'laboratories', 'pharma', 'pharmaceuticals', 'healthcare', 'beximco',
+      'incepta', 'renata', 'aristopharma', 'acme', 'popular', 'skf', 'sk+f',
+      'radiant', 'ibn', 'sina', 'orion', 'ziska', 'beacon', 'delta', 'silva',
+      'tab', 'cap', 'syr', 'inj', 'oral', 'drop', 'drops', 'ointment', 'cream',
     };
 
     final candidates = <String>[];
+    final wordsByLine = <List<String>>[];
 
-    // Pass 1: full line exact match (multi-word brands like "Entacyd Plus")
     for (final line in lines) {
-      if (_brandIndex!.containsKey(line.toLowerCase().trim())) {
-        candidates.insert(0, line.trim());
+      // Clean line by removing dosages and numbers
+      final cleanedLine = line
+          .replaceAll(dosagePattern, ' ')
+          .replaceAll(standaloneNumberPattern, ' ')
+          .replaceAll(RegExp(r"""['"`*!|#@$%^&+=;:"<>~?/\\]+"""), ' ')
+          .trim();
+
+      final words = cleanedLine
+          .split(RegExp(r'[\s,]+'))
+          .map((w) => w.trim())
+          .where((w) => w.length >= 2 && RegExp(r'^[a-zA-Z]').hasMatch(w))
+          .toList();
+
+      if (words.isNotEmpty) {
+        wordsByLine.add(words);
       }
     }
 
-    // Pass 2: word-level exact match
-    for (final line in lines) {
-      final words = line.split(RegExp(r'[\s,./\\()\[\]]+'));
-      for (final word in words) {
-        final clean = word.replaceAll(RegExp(r"""['"`*!]+"""), '').trim();
-        if (clean.length < 3) continue;
-        if (noiseWords.contains(clean.toLowerCase())) continue;
-        if (RegExp(r'^\d+$').hasMatch(clean)) continue;
-        if (!RegExp(r'^[a-zA-Z]').hasMatch(clean)) continue;
-        if (_brandIndex!.containsKey(clean.toLowerCase()) && !candidates.contains(clean)) {
-          candidates.add(clean);
+    // 1. Multi-word phrases directly matching brand index (e.g. "Napa Extra", "Ace Plus")
+    for (final words in wordsByLine) {
+      for (int i = 0; i < words.length; i++) {
+        // 2-word phrase
+        if (i + 1 < words.length) {
+          final phrase2 = '${words[i]} ${words[i + 1]}';
+          final lower2 = phrase2.toLowerCase();
+          if (_brandIndex != null && _brandIndex!.containsKey(lower2)) {
+            if (!candidates.contains(phrase2)) candidates.add(phrase2);
+          }
+        }
+        // 3-word phrase
+        if (i + 2 < words.length) {
+          final phrase3 = '${words[i]} ${words[i + 1]} ${words[i + 2]}';
+          final lower3 = phrase3.toLowerCase();
+          if (_brandIndex != null && _brandIndex!.containsKey(lower3)) {
+            if (!candidates.contains(phrase3)) candidates.add(phrase3);
+          }
         }
       }
     }
 
-    // Pass 3: fuzzy — last resort
-    for (final line in lines) {
-      final first = line.split(RegExp(r'[\s,.]')).first
-          .replaceAll(RegExp(r"""['"`*!]+"""), '').trim();
-      if (first.length >= 3 &&
-          !noiseWords.contains(first.toLowerCase()) &&
-          RegExp(r'^[a-zA-Z]').hasMatch(first) &&
-          !candidates.contains(first)) {
-        candidates.add(first);
+    // 2. Exact single-word matches in brand index or medicine db
+    for (final words in wordsByLine) {
+      for (final word in words) {
+        final lower = word.toLowerCase();
+        if (noiseWords.contains(lower)) continue;
+        if ((_brandIndex != null && _brandIndex!.containsKey(lower)) ||
+            (_medicineDb != null && _medicineDb!.containsKey(lower))) {
+          if (!candidates.contains(word)) candidates.add(word);
+        }
       }
     }
 
-    return candidates.take(5).toList();
+    // 3. Multi-word phrases not yet matched (for fuzzy / tier lookup)
+    for (final words in wordsByLine) {
+      for (int i = 0; i < words.length; i++) {
+        if (i + 1 < words.length) {
+          final phrase2 = '${words[i]} ${words[i + 1]}';
+          if (!candidates.contains(phrase2)) candidates.add(phrase2);
+        }
+      }
+    }
+
+    // 4. Remaining clean words
+    for (final words in wordsByLine) {
+      for (final word in words) {
+        final lower = word.toLowerCase();
+        if (noiseWords.contains(lower)) continue;
+        if (word.length >= 3 && !candidates.contains(word)) {
+          candidates.add(word);
+        }
+      }
+    }
+
+    // Fallback: if candidates is empty, use non-empty lines
+    if (candidates.isEmpty) {
+      for (final line in lines) {
+        final firstWord = line.split(RegExp(r'\s+')).first;
+        if (firstWord.length >= 3 && RegExp(r'^[a-zA-Z]').hasMatch(firstWord)) {
+          candidates.add(firstWord);
+        }
+      }
+    }
+
+    return candidates.take(8).toList();
   }
 
   ScanResult? _lookupLocal(List<String> candidates, String language) {
+    if (_brandIndex == null || _medicineDb == null) return null;
+
+    // Tier 1: Exact match in brand index
     for (final candidate in candidates) {
       final key = candidate.toLowerCase().trim();
+      final generic = _brandIndex![key];
+      if (generic != null) {
+        return _buildResult(
+          brandName: candidate,
+          genericName: generic,
+          language: language,
+        );
+      }
+    }
 
-      String? genericName = _brandIndex![key];
+    // Tier 2: Exact or prefix match in medicine DB (candidate IS generic name)
+    for (final candidate in candidates) {
+      final key = candidate.toLowerCase().trim();
+      if (_medicineDb!.containsKey(key)) {
+        return _buildResult(
+          brandName: _toTitleCase(key),
+          genericName: _toTitleCase(key),
+          language: language,
+        );
+      }
+      // Check prefix for generic names (e.g. "Azithromycin" -> "Azithromycin Dihydrate")
+      if (key.length >= 5) {
+        for (final genKey in _medicineDb!.keys) {
+          if (genKey.startsWith('$key ') || genKey == key) {
+            return _buildResult(
+              brandName: _toTitleCase(candidate),
+              genericName: _toTitleCase(genKey),
+              language: language,
+            );
+          }
+        }
+      }
+    }
 
-      if (genericName == null) {
-        for (final brand in _brandIndex!.keys) {
-          if (brand.contains(key) || key.contains(brand)) {
-            genericName = _brandIndex![brand];
-            break;
+    // Tier 3: Hyphen/Whitespace normalized match (e.g. "a cold" vs "a-cold", "e cap" vs "e-cap")
+    for (final candidate in candidates) {
+      final candNorm = _normalize(candidate);
+      if (candNorm.length < 3) continue;
+
+      for (final entry in _brandIndex!.entries) {
+        if (_normalize(entry.key) == candNorm) {
+          return _buildResult(
+            brandName: entry.key,
+            genericName: entry.value,
+            language: language,
+          );
+        }
+      }
+
+      for (final genKey in _medicineDb!.keys) {
+        if (_normalize(genKey) == candNorm) {
+          return _buildResult(
+            brandName: _toTitleCase(candidate),
+            genericName: _toTitleCase(genKey),
+            language: language,
+          );
+        }
+      }
+    }
+
+    // Tier 4: Multi-word boundary / prefix match
+    for (final candidate in candidates) {
+      final key = candidate.toLowerCase().trim();
+      if (key.length < 4) continue;
+
+      String? bestBrand;
+      String? bestGeneric;
+      int minLenDiff = 999;
+
+      for (final entry in _brandIndex!.entries) {
+        final brand = entry.key;
+        if (brand.startsWith('$key ') || brand.endsWith(' $key')) {
+          final diff = (brand.length - key.length).abs();
+          if (diff < minLenDiff) {
+            minLenDiff = diff;
+            bestBrand = brand;
+            bestGeneric = entry.value;
           }
         }
       }
 
-      if (genericName == null) continue;
+      if (bestBrand != null && minLenDiff <= 8) {
+        return _buildResult(
+          brandName: bestBrand,
+          genericName: bestGeneric!,
+          language: language,
+        );
+      }
+    }
 
-      final rawSummary = _medicineDb![genericName.toLowerCase()] ?? '';
-      final summaryEn = _buildEnglishSummary(rawSummary, genericName);
-      final summary = language == 'bn'
-          ? _buildBanglaSummary(rawSummary, genericName)
-          : summaryEn;
+    // Tier 5: Levenshtein distance fuzzy matching for OCR typos
+    // (e.g. "SecIo" -> "seclo", "SergeI" -> "sergel", "ParacetamoI" -> "paracetamol")
+    String? bestFuzzyBrand;
+    String? bestFuzzyGeneric;
+    int lowestDistance = 999;
 
-      final displayBrand = candidate[0].toUpperCase() + candidate.substring(1);
+    for (final candidate in candidates) {
+      final key = candidate.toLowerCase().trim();
+      if (key.length < 4) continue;
 
-      return ScanResult(
-        medicineName: displayBrand,
-        brandName: displayBrand,
-        genericName: genericName,
-        summary: summary,
-        summaryEn: summaryEn,
+      final maxAllowedDist = key.length <= 6 ? 1 : 2;
+
+      for (final entry in _brandIndex!.entries) {
+        final brand = entry.key;
+        if ((brand.length - key.length).abs() > maxAllowedDist) continue;
+
+        // First character heuristic: allow similar substitutions
+        final firstMatch = brand[0] == key[0] ||
+            (brand[0] == 's' && key[0] == '5') ||
+            (brand[0] == 'o' && key[0] == '0') ||
+            (brand[0] == 'i' && key[0] == 'l');
+        if (!firstMatch) continue;
+
+        final dist = _levenshtein(key, brand);
+        if (dist <= maxAllowedDist && dist < lowestDistance) {
+          lowestDistance = dist;
+          bestFuzzyBrand = brand;
+          bestFuzzyGeneric = entry.value;
+        }
+      }
+    }
+
+    if (bestFuzzyBrand != null && bestFuzzyGeneric != null) {
+      return _buildResult(
+        brandName: bestFuzzyBrand,
+        genericName: bestFuzzyGeneric,
         language: language,
       );
     }
+
     return null;
   }
 
-  /// Builds a natural Bangla summary.
-  /// Uses the translation map for idiomatic phrasing; falls back gracefully.
-  String _buildBanglaSummary(String raw, String genericName) {
-    final translated = BnTranslations.translateSummary(raw, genericName);
-    if (translated != raw) return translated;
+  ScanResult _buildResult({
+    required String brandName,
+    required String genericName,
+    required String language,
+  }) {
+    final genericBn = BnTranslations.getGenericNameBn(genericName);
+    final category = BnTranslations.getCategory(genericName, language: language);
 
-    final cleaned = _cleanRaw(raw);
-    if (cleaned.isEmpty) return '$genericName হলো একটি ওষুধ।';
-    return 'এই ওষুধটি $cleaned এর জন্য ব্যবহার করা হয়।';
-  }
+    final rawDesc = _medicineDb?[genericName.toLowerCase()] ?? '';
 
-  /// Builds a complete, informative English summary.
-  /// Preserves enough context to be genuinely useful (up to 220 chars).
-  String _buildEnglishSummary(String raw, String genericName) {
-    if (raw.isEmpty) return 'This medicine contains $genericName.';
+    final summaryBn = BnTranslations.translateSummary(rawDesc, genericName);
+    final summaryEn = BnTranslations.getEnglishSummary(rawDesc, genericName);
 
-    final cleaned = _cleanRaw(raw);
-    if (cleaned.isEmpty) return 'This medicine contains $genericName.';
+    final summary = language == 'bn' ? summaryBn : summaryEn;
+    final displayBrand = _toTitleCase(brandName);
 
-    // If cleaned text already starts naturally, use it
-    if (RegExp(r'^(this|used|treats|helps)', caseSensitive: false).hasMatch(cleaned)) {
-      return cleaned;
-    }
-    return 'This medicine is used for $cleaned';
-  }
-
-  /// Strips clinical preamble and caps at 220 chars (was 120 — too short).
-  /// Now tries to end on a complete sentence boundary.
-  String _cleanRaw(String raw) {
-    String cleaned = raw
-        .replaceAll(RegExp(r'^[^:]+is indicated (for|in)[:\s]*', caseSensitive: false), '')
-        .replaceAll(RegExp(r'^[^:]+is used (for|in)[:\s]*', caseSensitive: false), '')
-        .replaceAll(RegExp(r'^[^:]+indicated[:\s]*', caseSensitive: false), '')
-        .replaceAll(RegExp(r'^\s*[-•]\s*', caseSensitive: false), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-
-    // Cap at 220 chars, trying to land on a sentence end
-    if (cleaned.length > 220) {
-      final sub = cleaned.substring(0, 220);
-      // Prefer to end on a period within the last 60 chars
-      final lastPeriod = sub.lastIndexOf('.', 220);
-      if (lastPeriod > 160) {
-        cleaned = sub.substring(0, lastPeriod + 1);
-      } else {
-        final lastSpace = sub.lastIndexOf(' ');
-        cleaned = '${sub.substring(0, lastSpace)}...';
-      }
-    }
-    return cleaned;
+    return ScanResult(
+      medicineName: displayBrand,
+      brandName: displayBrand,
+      genericName: genericName,
+      genericNameBn: genericBn,
+      category: category,
+      summary: summary,
+      summaryEn: summaryEn,
+      language: language,
+    );
   }
 
   Future<ScanResult?> _lookupWikipedia(String candidate, String language) async {
@@ -231,7 +370,9 @@ class LLMService {
     final url = 'https://en.wikipedia.org/api/rest_v1/page/summary/$encoded';
 
     final response = await http
-        .get(Uri.parse(url), headers: {'User-Agent': 'KiOushodh/1.0'})
+        .get(Uri.parse(url), headers: {
+          'User-Agent': 'KiOushodh/1.0 (https://github.com/meawsin/ki_oushodh; accessible.medicine.identifier@gmail.com)',
+        })
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
@@ -240,26 +381,27 @@ class LLMService {
       final extract = json['extract'] as String? ?? '';
       final title = json['title'] as String? ?? candidate;
 
-      final medKeywords = ['drug', 'medication', 'medicine', 'antibiotic',
-          'analgesic', 'treatment', 'tablet', 'capsule', 'pharmaceutical'];
+      final medKeywords = [
+        'drug', 'medication', 'medicine', 'antibiotic',
+        'analgesic', 'treatment', 'tablet', 'capsule', 'pharmaceutical'
+      ];
       if (!medKeywords.any((kw) =>
           description.contains(kw) || extract.toLowerCase().contains(kw))) {
         return null;
       }
 
-      // Use first 2 sentences for richer context (was only 1 — often incomplete)
       final summaryEn = _firstTwoSentences(extract);
-      final summary = language == 'bn'
-          ? BnTranslations.translateSummary(summaryEn, title)
-          : summaryEn;
+      final summaryBn = BnTranslations.translateSummary(summaryEn, title);
+      final genericBn = BnTranslations.getGenericNameBn(title);
+      final category = BnTranslations.getCategory(title, language: language);
 
       return ScanResult(
         medicineName: title,
         brandName: candidate,
         genericName: title,
-        summary: summary == summaryEn && language == 'bn'
-            ? 'এই ওষুধটি $summaryEn এর জন্য ব্যবহার করা হয়।'
-            : summary,
+        genericNameBn: genericBn,
+        category: category,
+        summary: language == 'bn' ? summaryBn : summaryEn,
         summaryEn: summaryEn,
         language: language,
       );
@@ -267,13 +409,46 @@ class LLMService {
     return null;
   }
 
-  /// Returns up to 2 sentences from [text], capped at 280 chars.
-  /// Original returned only 1 sentence — often cut off mid-thought.
   String _firstTwoSentences(String text) {
     final matches = RegExp(r'([^.!?]+[.!?])').allMatches(text).take(2).toList();
     if (matches.isEmpty) return text.length > 280 ? '${text.substring(0, 277)}...' : text;
     final combined = matches.map((m) => m.group(1)?.trim() ?? '').join(' ');
     return combined.length > 280 ? '${combined.substring(0, 277)}...' : combined;
+  }
+
+  String _toTitleCase(String text) {
+    if (text.isEmpty) return text;
+    return text.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
+  String _normalize(String s) =>
+      s.toLowerCase().replaceAll(RegExp(r'[\s\-_\.]+'), '');
+
+  int _levenshtein(String s, String t) {
+    if (s == t) return 0;
+    if (s.isEmpty) return t.length;
+    if (t.isEmpty) return s.length;
+
+    List<int> v0 = List<int>.generate(t.length + 1, (i) => i);
+    List<int> v1 = List<int>.filled(t.length + 1, 0);
+
+    for (int i = 0; i < s.length; i++) {
+      v1[0] = i + 1;
+      for (int j = 0; j < t.length; j++) {
+        final cost = (s.codeUnitAt(i) == t.codeUnitAt(j)) ? 0 : 1;
+        final a = v1[j] + 1;
+        final b = v0[j + 1] + 1;
+        final c = v0[j] + cost;
+        v1[j + 1] = (a < b) ? (a < c ? a : c) : (b < c ? b : c);
+      }
+      for (int j = 0; j <= t.length; j++) {
+        v0[j] = v1[j];
+      }
+    }
+    return v1[t.length];
   }
 }
 

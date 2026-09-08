@@ -56,15 +56,15 @@ class TTSService {
 
     if (language == 'bn' && _isBanglaAvailable) {
       await _tts.setLanguage('bn-BD');
-      await _tts.speak(_sanitizeForTts(text));
+      await _tts.speak(_sanitizeForTts(text, language: 'bn'));
     } else if (language == 'bn' && !_isBanglaAvailable) {
       if (englishFallback != null && englishFallback.isNotEmpty) {
         await _tts.setLanguage('en-US');
-        await _tts.speak(_sanitizeForTts(englishFallback));
+        await _tts.speak(_sanitizeForTts(englishFallback, language: 'en'));
       }
     } else {
       await _tts.setLanguage('en-US');
-      await _tts.speak(_sanitizeForTts(text));
+      await _tts.speak(_sanitizeForTts(text, language: 'en'));
     }
   }
 
@@ -78,17 +78,34 @@ class TTSService {
   // ---------------------------------------------------------------------------
   // Sanitise text before handing to TTS engine
   // ---------------------------------------------------------------------------
-  String _sanitizeForTts(String text) {
-    return text
-        // Remove trailing ellipsis — engine says "dot dot dot"
-        .replaceAll('...', '.')
-        // Drug suffixes that engines mispronounce — expand to readable form
-        .replaceAll(RegExp(r'\bmg\b', caseSensitive: false), 'milligram')
-        .replaceAll(RegExp(r'\bml\b', caseSensitive: false), 'milliliter')
-        .replaceAll(RegExp(r'\bmcg\b', caseSensitive: false), 'microgram')
-        // Remove stray parentheses that cause awkward pauses
+  String _sanitizeForTts(String text, {String language = 'en'}) {
+    String cleaned = text
+        .replaceAll('...', language == 'bn' ? '।' : '.')
+        .replaceAll('…', language == 'bn' ? '।' : '.')
+        .replaceAll(RegExp(r'[*#_~`^|]'), ' ');
+
+    if (language == 'bn') {
+      cleaned = cleaned
+          .replaceAll(RegExp(r'\bmg\b', caseSensitive: false), 'মিলিগ্রাম')
+          .replaceAll(RegExp(r'\bml\b', caseSensitive: false), 'মিলিলিটার')
+          .replaceAll(RegExp(r'\bmcg\b', caseSensitive: false), 'মাইক্রোগ্রাম')
+          .replaceAll(RegExp(r'\bgm?\b', caseSensitive: false), 'গ্রাম')
+          .replaceAll('+', ' এবং ')
+          .replaceAll('&', ' এবং ')
+          .replaceAll('/', ' অথবা ');
+    } else {
+      cleaned = cleaned
+          .replaceAll(RegExp(r'\bmg\b', caseSensitive: false), 'milligram')
+          .replaceAll(RegExp(r'\bml\b', caseSensitive: false), 'milliliter')
+          .replaceAll(RegExp(r'\bmcg\b', caseSensitive: false), 'microgram')
+          .replaceAll(RegExp(r'\bgm?\b', caseSensitive: false), 'gram')
+          .replaceAll('+', ' and ')
+          .replaceAll('&', ' and ')
+          .replaceAll('/', ' or ');
+    }
+
+    return cleaned
         .replaceAll(RegExp(r'[()]'), ', ')
-        // Collapse multiple spaces/commas
         .replaceAll(RegExp(r',\s*,'), ',')
         .replaceAll(RegExp(r'\s{2,}'), ' ')
         .trim();

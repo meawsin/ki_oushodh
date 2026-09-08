@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/bn_translations.dart';
 import '../../core/utils/date_utils.dart';
 import '../../domain/models/scan_history_model.dart';
 import '../../domain/models/scan_result.dart';
@@ -274,18 +275,19 @@ class _HistoryCard extends ConsumerWidget {
         child: InkWell(
           onTap: () {
             HapticFeedback.selectionClick();
+            final fullResult = ScanResult(
+              medicineName: item.brandName,
+              brandName: item.brandName,
+              genericName: item.genericName,
+              genericNameBn: BnTranslations.getGenericNameBn(item.genericName),
+              category: item.category ?? BnTranslations.getCategory(item.genericName, language: item.language),
+              summary: item.summary,
+              summaryEn: item.summaryEn ?? item.summary,
+              language: item.language,
+            );
             // Tap the card → open full result view
             Navigator.of(context).push(PageRouteBuilder(
-              pageBuilder: (_, a, __) => ResultsScreen(
-                result: ScanResult(
-                  medicineName: item.brandName,
-                  brandName: item.brandName,
-                  genericName: item.genericName,
-                  summary: item.summary,
-                  summaryEn: item.summary, // Best effort — original EN not stored
-                  language: item.language,
-                ),
-              ),
+              pageBuilder: (_, a, __) => ResultsScreen(result: fullResult),
               transitionsBuilder: (_, anim, __, child) =>
                   FadeTransition(opacity: anim, child: child),
               transitionDuration: const Duration(milliseconds: 250),
@@ -316,6 +318,24 @@ class _HistoryCard extends ConsumerWidget {
                         fontStyle: FontStyle.italic,
                       ),
                     ),
+                    if (item.category != null && item.category!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          item.category!,
+                          style: TextStyle(
+                            color: cs.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ]),
                 ),
                 Text(
@@ -345,10 +365,20 @@ class _HistoryCard extends ConsumerWidget {
                 child: InkWell(
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    ref.read(ttsServiceProvider).speak(
-                      '${item.brandName}. ${item.summary}',
+                    final fullResult = ScanResult(
+                      medicineName: item.brandName,
+                      brandName: item.brandName,
+                      genericName: item.genericName,
+                      genericNameBn: BnTranslations.getGenericNameBn(item.genericName),
+                      category: item.category ?? BnTranslations.getCategory(item.genericName, language: item.language),
+                      summary: item.summary,
+                      summaryEn: item.summaryEn ?? item.summary,
                       language: item.language,
-                      englishFallback: '${item.brandName}. ${item.summary}',
+                    );
+                    ref.read(ttsServiceProvider).speak(
+                      fullResult.spokenText,
+                      language: item.language,
+                      englishFallback: fullResult.spokenTextEn,
                     );
                   },
                   borderRadius: BorderRadius.circular(10),

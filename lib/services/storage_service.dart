@@ -17,12 +17,16 @@ class StorageService {
     required String brandName,
     required String genericName,
     required String summary,
+    String? summaryEn,
+    String? category,
     required String language,
   }) async {
     await _box.add(ScanHistoryModel(
       brandName: brandName,
       genericName: genericName,
       summary: summary,
+      summaryEn: summaryEn,
+      category: category,
       language: language,
       scannedAt: DateTime.now(),
     ));

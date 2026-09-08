@@ -7,6 +7,7 @@
 .pub/
 build/
 *.g.dart
+!lib/domain/models/scan_history_model.g.dart
 *.freezed.dart
 
 # IDE
@@ -20,6 +21,9 @@ android/key.properties
 *.jks
 *.keystore
 
+# Crash logs
+hs_err_pid*.log
+
 # Environment / Secrets
 .env
 lib/core/constants/secrets.dart
@@ -29,5 +33,4 @@ lib/core/constants/secrets.dart
 Thumbs.db
 
 # Android Kotlin compiler error logs
-android/.kotlin/
-tash list
+android/.kotlin/

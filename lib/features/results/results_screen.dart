@@ -63,6 +63,8 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
         brandName: widget.result.brandName,
         genericName: widget.result.genericName,
         summary: widget.result.summary,
+        summaryEn: widget.result.summaryEn,
+        category: widget.result.category,
         language: widget.result.language,
       );
     } catch (_) {}
@@ -85,8 +87,11 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
   }
 
   void _shareResult() {
+    final cat = (widget.result.category != null && widget.result.category!.isNotEmpty)
+        ? ' [${widget.result.category}]'
+        : '';
     final text =
-        '${widget.result.medicineName} (${widget.result.genericName})\n\n${widget.result.summary}';
+        '${widget.result.medicineName} (${widget.result.genericName})$cat\n\n${widget.result.summary}';
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -211,7 +216,9 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                           children: [
                             Flexible(
                               child: Text(
-                                result.genericName,
+                                language == 'bn' && result.genericNameBn != null && result.genericNameBn!.isNotEmpty
+                                    ? '${result.genericName} (${result.genericNameBn})'
+                                    : result.genericName,
                                 style: TextStyle(
                                   color: cs.onSurfaceVariant,
                                   fontSize: 13,
@@ -222,6 +229,25 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                             ),
                           ],
                         ),
+                        if (result.category != null && result.category!.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: cs.primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+                            ),
+                            child: Text(
+                              result.category!,
+                              style: TextStyle(
+                                color: cs.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

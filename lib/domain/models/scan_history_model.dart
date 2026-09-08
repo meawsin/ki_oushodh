@@ -21,11 +21,19 @@ class ScanHistoryModel extends HiveObject {
   @HiveField(4)
   final DateTime scannedAt;
 
+  @HiveField(5)
+  final String? summaryEn;
+
+  @HiveField(6)
+  final String? category;
+
   ScanHistoryModel({
     required this.brandName,
     required this.genericName,
     required this.summary,
     required this.language,
     required this.scannedAt,
+    this.summaryEn,
+    this.category,
   });
 }
