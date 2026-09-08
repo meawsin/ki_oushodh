@@ -352,6 +352,8 @@ class LLMService {
 
     final summary = language == 'bn' ? summaryBn : summaryEn;
     final displayBrand = _toTitleCase(brandName);
+    final precaution = BnTranslations.getPrecaution(genericName, language: language);
+    final precautionEn = BnTranslations.getPrecaution(genericName, language: 'en');
 
     return ScanResult(
       medicineName: displayBrand,
@@ -362,6 +364,8 @@ class LLMService {
       summary: summary,
       summaryEn: summaryEn,
       language: language,
+      precaution: precaution,
+      precautionEn: precautionEn,
     );
   }
 
@@ -394,6 +398,8 @@ class LLMService {
       final summaryBn = BnTranslations.translateSummary(summaryEn, title);
       final genericBn = BnTranslations.getGenericNameBn(title);
       final category = BnTranslations.getCategory(title, language: language);
+      final precaution = BnTranslations.getPrecaution(title, language: language);
+      final precautionEn = BnTranslations.getPrecaution(title, language: 'en');
 
       return ScanResult(
         medicineName: title,
@@ -404,6 +410,8 @@ class LLMService {
         summary: language == 'bn' ? summaryBn : summaryEn,
         summaryEn: summaryEn,
         language: language,
+        precaution: precaution,
+        precautionEn: precautionEn,
       );
     }
     return null;

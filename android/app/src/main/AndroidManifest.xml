@@ -33,6 +33,11 @@
         </activity>
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
+
+        <!-- Install-time download of ML Kit OCR model via Google Play Services for instant offline capability -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
     </application>
 
     <queries>

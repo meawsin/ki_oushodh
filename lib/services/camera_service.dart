@@ -20,9 +20,11 @@ import 'package:camera/camera.dart';
 class CameraService {
   CameraController? _controller;
   bool _isInitialized = false;
+  bool _isTorchOn = false;
 
   CameraController? get controller => _controller;
   bool get isInitialized => _isInitialized;
+  bool get isTorchOn => _isTorchOn;
 
   /// Initializes the rear-facing camera.
   ///
@@ -92,6 +94,31 @@ class CameraService {
     }
   }
 
+  /// Toggles the camera flashlight on/off for dark environments.
+  Future<bool> toggleTorch() async {
+    if (!_isInitialized || _controller == null) return false;
+    try {
+      _isTorchOn = !_isTorchOn;
+      await _controller!.setFlashMode(_isTorchOn ? FlashMode.torch : FlashMode.off);
+      return _isTorchOn;
+    } catch (_) {
+      return _isTorchOn;
+    }
+  }
+
+  /// Sets manual focus at a normalized coordinate (0.0 to 1.0).
+  Future<void> setFocusPoint(Offset relativeOffset) async {
+    if (!_isInitialized || _controller == null) return;
+    try {
+      final clampedX = relativeOffset.dx.clamp(0.0, 1.0);
+      final clampedY = relativeOffset.dy.clamp(0.0, 1.0);
+      await _controller!.setFocusPoint(Offset(clampedX, clampedY));
+      await _controller!.setFocusMode(FocusMode.auto);
+    } catch (_) {
+      // Non-fatal if unsupported on specific hardware
+    }
+  }
+
   /// Releases all camera resources.
   ///
   /// Must be called when the scanner screen is disposed.
@@ -99,9 +126,15 @@ class CameraService {
   /// the entire app to be killed by the OS.
   Future<void> dispose() async {
     if (_controller != null) {
+      if (_isTorchOn) {
+        try {
+          await _controller!.setFlashMode(FlashMode.off);
+        } catch (_) {}
+      }
       await _controller!.dispose();
       _controller = null;
       _isInitialized = false;
+      _isTorchOn = false;
     }
   }
 

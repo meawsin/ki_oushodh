@@ -10,6 +10,8 @@ class MedicineProfile {
   final String categoryEn;
   final String summaryBn;
   final String summaryEn;
+  final String? precautionBn;
+  final String? precautionEn;
 
   const MedicineProfile({
     required this.bnName,
@@ -17,6 +19,8 @@ class MedicineProfile {
     required this.categoryEn,
     required this.summaryBn,
     required this.summaryEn,
+    this.precautionBn,
+    this.precautionEn,
   });
 }
 
@@ -56,6 +60,34 @@ class BnTranslations {
       return language == 'bn' ? 'ভিটামিন ও পুষ্টি' : 'Vitamins & Supplements';
     }
     return language == 'bn' ? 'প্রয়োজনীয় ওষুধ' : 'Essential Medicine';
+  }
+
+  /// Returns safety precaution and dosage advice in selected language
+  static String? getPrecaution(String genericName, {required String language}) {
+    final lower = genericName.toLowerCase();
+    for (final entry in _profiles.entries) {
+      if (lower.contains(entry.key)) {
+        final prec = language == 'bn' ? entry.value.precautionBn : entry.value.precautionEn;
+        if (prec != null && prec.isNotEmpty) return prec;
+      }
+    }
+    // Class-wide heuristics for unprofiled medicines
+    if (lower.contains('cef') || lower.contains('cillin') || lower.contains('mycin') || lower.contains('floxacin')) {
+      return language == 'bn'
+          ? 'চিকিৎসকের নির্দেশিত অ্যান্টিবায়োটিকের সম্পূর্ণ কোর্স শেষ করুন।'
+          : 'Complete the full course of this antibiotic as directed.';
+    }
+    if (lower.contains('fenac') || lower.contains('profen') || lower.contains('coxib')) {
+      return language == 'bn'
+          ? 'পেটের সমস্যা এড়াতে অবশ্যই ভরা পেটে সেবন করুন।'
+          : 'Always take with or after food to prevent stomach irritation.';
+    }
+    if (lower.contains('sartan') || lower.contains('olol') || lower.contains('dipine')) {
+      return language == 'bn'
+          ? 'নিয়মিত একই সময়ে সেবন করুন। চিকিৎসকের পরামর্শ ছাড়া হঠাৎ বন্ধ করবেন না।'
+          : 'Take regularly at the same time daily. Do not discontinue abruptly.';
+    }
+    return null;
   }
 
   /// Translates a raw indication or generic medicine into plain Bangla.
@@ -229,6 +261,8 @@ class BnTranslations {
       categoryEn: 'Pain Relief & Fever',
       summaryBn: 'এই ওষুধটি জ্বর, মাথাব্যথা এবং শরীর ব্যথা কমাতে ব্যবহার করা হয়।',
       summaryEn: 'Used for fever, headache, body aches, and pain relief.',
+      precautionBn: 'দিনে ৪০০০ মিলিগ্রাম (৮টি ৫০০ মিগ্রা ট্যাবলেটের বেশি) সেবন করবেন না। অতিরিক্ত মাত্রায় লিভারের ক্ষতি হতে পারে।',
+      precautionEn: 'Do not exceed 4,000 mg (8 x 500mg tablets) in 24 hours. Overdose can cause severe liver damage.',
     ),
     'ibuprofen': MedicineProfile(
       bnName: 'আইবুপ্রোফেন',
@@ -236,6 +270,8 @@ class BnTranslations {
       categoryEn: 'Pain & Anti-inflammatory',
       summaryBn: 'এই ওষুধটি তীব্র ব্যথা, জ্বর এবং ফোলাভাব বা প্রদাহ কমাতে ব্যবহার করা হয়।',
       summaryEn: 'Used for pain, fever, and reducing swelling and inflammation.',
+      precautionBn: 'পেটের আলসার এড়াতে অবশ্যই ভরা পেটে খাবেন। কিডনি বা হার্টের জটিলতা থাকলে চিকিৎসকের পরামর্শ নিন।',
+      precautionEn: 'Always take with food to protect your stomach. Consult a doctor if you have kidney or heart issues.',
     ),
     'naproxen': MedicineProfile(
       bnName: 'ন্যাপ্রোক্সেন',
@@ -243,6 +279,8 @@ class BnTranslations {
       categoryEn: 'Arthritis & Pain Relief',
       summaryBn: 'এই ওষুধটি বাতব্যথা, গাঁটের ব্যথা ও দীর্ঘস্থায়ী ব্যথা কমাতে ব্যবহার করা হয়।',
       summaryEn: 'Used for arthritis, joint inflammation, and chronic body pain.',
+      precautionBn: 'অবশ্যই ভরা পেটে খাবেন। গ্যাস্ট্রিক সুরক্ষার জন্য সাধারণত গ্যাস্ট্রিকের ওষুধের সাথে নির্দেশিত হয়।',
+      precautionEn: 'Take with or after meals. Often prescribed with an acid suppressor to prevent ulceration.',
     ),
     'diclofenac': MedicineProfile(
       bnName: 'ডাইক্লোফেনাক',
@@ -250,6 +288,8 @@ class BnTranslations {
       categoryEn: 'Severe Pain Relief',
       summaryBn: 'এই ওষুধটি তীব্র বাতব্যথা, হাড় ও মাংসপেশির ব্যথা কমাতে ব্যবহার করা হয়।',
       summaryEn: 'Used for severe joint pain, back pain, and musculoskeletal pain.',
+      precautionBn: 'কখনোই খালি পেটে সেবন করবেন না। দীর্ঘমেয়াদে চিকিৎসকের প্রেসক্রিপশন ছাড়া খাবেন না।',
+      precautionEn: 'Never take on an empty stomach. Avoid unmonitored long-term usage.',
     ),
     'aceclofenac': MedicineProfile(
       bnName: 'অ্যাসিফেনাক',
@@ -257,6 +297,8 @@ class BnTranslations {
       categoryEn: 'Joint Pain & Arthritis',
       summaryBn: 'এই ওষুধটি বাতব্যথা, হাড়ের ক্ষয়জনিত ব্যথা ও প্রদাহ কমাতে ব্যবহার করা হয়।',
       summaryEn: 'Used for osteoarthritis, rheumatoid arthritis, and joint pain.',
+      precautionBn: 'গ্যাস্ট্রিক আলসারের ঝুঁকি কমাতে অবশ্যই ভরা পেটে সেবন করবেন।',
+      precautionEn: 'Always take after food to minimize gastrointestinal discomfort.',
     ),
     'ketorolac': MedicineProfile(
       bnName: 'কিটোরোলাক',
@@ -264,6 +306,8 @@ class BnTranslations {
       categoryEn: 'Acute Pain Relief',
       summaryBn: 'এই ওষুধটি অপারেশনের পরবর্তী তীব্র ব্যথা বা আঘাতের ব্যথা দ্রুত কমাতে ব্যবহার করা হয়।',
       summaryEn: 'Used for short-term relief of moderate to severe acute pain.',
+      precautionBn: 'এটি সর্বোচ্চ ৫ দিনের বেশি ব্যবহার করা উচিত নয়। কিডনির ওপর প্রভাব ফেলতে পারে।',
+      precautionEn: 'Do not use for more than 5 consecutive days due to risk of kidney toxicity and bleeding.',
     ),
     'etoricoxib': MedicineProfile(
       bnName: 'ইটোরিকক্সিব',
@@ -271,6 +315,8 @@ class BnTranslations {
       categoryEn: 'Gout & Joint Pain',
       summaryBn: 'এই ওষুধটি গেঁটেবাত এবং অস্থিসন্ধির তীব্র ব্যথা ও ফোলা কমাতে ব্যবহার করা হয়।',
       summaryEn: 'Used for gout flare-ups, osteoarthritis, and acute joint pain.',
+      precautionBn: 'উচ্চ রক্তচাপ থাকলে নিয়মিত রক্তচাপ পরীক্ষা করুন।',
+      precautionEn: 'Monitor blood pressure regularly if you have hypertension.',
     ),
     'tramadol': MedicineProfile(
       bnName: 'ট্রামাডল',
@@ -278,6 +324,8 @@ class BnTranslations {
       categoryEn: 'Moderate to Severe Pain',
       summaryBn: 'এই ওষুধটি মধ্যম থেকে তীব্র ব্যথা কমাতে নির্দেশিত।',
       summaryEn: 'Used for the treatment of moderate to severe acute pain.',
+      precautionBn: 'ঘুম বা মাথা ঘোরার সমস্যা হতে পারে। চিকিৎসকের নির্দেশনা ছাড়া অতিরিক্ত সেবন করবেন না।',
+      precautionEn: 'May cause drowsiness and dizziness. Use strictly as prescribed by a licensed physician.',
     ),
 
     // --- Gastric, Acidity & Ulcer ---
@@ -287,6 +335,8 @@ class BnTranslations {
       categoryEn: 'Gastric & Acidity',
       summaryBn: 'এই ওষুধটি পেটের অতিরিক্ত অ্যাসিড কমিয়ে বুকজ্বালা, গ্যাস ও আলসার নিরাময় করে।',
       summaryEn: 'Reduces stomach acid to relieve heartburn, gas, and peptic ulcers.',
+      precautionBn: 'খাবারের ৩০ মিনিট আগে খালি পেটে সেবন করা সবচেয়ে বেশি কার্যকর।',
+      precautionEn: 'Take on an empty stomach at least 30 minutes before meals for maximum efficacy.',
     ),
     'esomeprazole': MedicineProfile(
       bnName: 'ইসোমিপ্রাজল',
@@ -294,6 +344,8 @@ class BnTranslations {
       categoryEn: 'Heartburn & Acid Reflux',
       summaryBn: 'এই ওষুধটি পেটের অতিরিক্ত অ্যাসিড কমায় এবং বুকজ্বালা ও গ্যাস্ট্রিক আলসার প্রতিরোধ করে।',
       summaryEn: 'Decreases stomach acid for relief from heartburn, GERD, and ulcers.',
+      precautionBn: 'খাবারের ৩০ মিনিট আগে খালি পেটে সেবন করা সবচেয়ে বেশি কার্যকর।',
+      precautionEn: 'Take on an empty stomach at least 30 minutes before breakfast or meals.',
     ),
     'pantoprazole': MedicineProfile(
       bnName: 'প্যান্টোপ্রাজল',
@@ -301,6 +353,8 @@ class BnTranslations {
       categoryEn: 'Gastric & Acid Control',
       summaryBn: 'এই ওষুধটি পেটের অ্যাসিড উৎপাদন নিয়ন্ত্রণ করে গ্যাস্ট্রিক ও খাদ্যনালীর প্রদাহ কমায়।',
       summaryEn: 'Used for stomach ulcers, gastroesophageal reflux, and gastric hyperacidity.',
+      precautionBn: 'খাবারের ৩০ মিনিট আগে খালি পেটে সেবন করুন। ট্যাবলেট চিবিয়ে খাবেন না।',
+      precautionEn: 'Take 30 minutes before food. Swallow whole; do not chew or crush.',
     ),
     'rabeprazole': MedicineProfile(
       bnName: 'রাবিপ্রাজল',
@@ -308,6 +362,8 @@ class BnTranslations {
       categoryEn: 'Rapid Acid Relief',
       summaryBn: 'এই ওষুধটি পেটের গ্যাস, বুকজ্বালা এবং অ্যাসিড রিফ্লাক্স নিয়ন্ত্রণে দ্রুত কাজ করে।',
       summaryEn: 'Provides fast acid reduction for treating ulcers and acid indigestion.',
+      precautionBn: 'খাবারের আগে খালি পেটে সেবন করুন।',
+      precautionEn: 'Take on an empty stomach before a meal.',
     ),
     'dexlansoprazole': MedicineProfile(
       bnName: 'ডেক্সল্যান্সোপ্রাজল',
@@ -315,6 +371,8 @@ class BnTranslations {
       categoryEn: '24-Hour Acid Control',
       summaryBn: 'এই ওষুধটি দীর্ঘক্ষণ পেটের অ্যাসিড কমিয়ে বুকজ্বালা ও খাদ্যনালীর ক্ষত সারাতে সাহায্য করে।',
       summaryEn: 'Provides dual-release 24-hour acid control for erosive heartburn and GERD.',
+      precautionBn: 'খাবারের সাথে বা খাবার ছাড়া যেকোনো সময় নেওয়া যায়। চিবিয়ে খাবেন না।',
+      precautionEn: 'Can be taken with or without food. Swallow capsule whole.',
     ),
     'famotidine': MedicineProfile(
       bnName: 'ফ্যামোটিডিন',
@@ -322,6 +380,8 @@ class BnTranslations {
       categoryEn: 'Heartburn & Indigestion',
       summaryBn: 'এই ওষুধটি পেটের অ্যাসিড কমিয়ে বদহজম ও বুকজ্বালা কমাতে ব্যবহার করা হয়।',
       summaryEn: 'Used to treat and prevent heartburn, sour stomach, and acid indigestion.',
+      precautionBn: 'রাতে শোবার আগে বা লক্ষণ দেখা দিলে সেবন করুন।',
+      precautionEn: 'Often taken at bedtime or 15–60 minutes before acid-triggering meals.',
     ),
     'ranitidine': MedicineProfile(
       bnName: 'র্যানিটিডিন',
@@ -329,6 +389,8 @@ class BnTranslations {
       categoryEn: 'Gastric & Ulcer Relief',
       summaryBn: 'এই ওষুধটি পেটের অতিরিক্ত অ্যাসিড কমাতে ও আলসার নিরাময়ে ব্যবহার করা হয়।',
       summaryEn: 'Used for reducing stomach acid and promoting healing of peptic ulcers.',
+      precautionBn: 'খাবারের আগে বা খাবারের সাথে সেবন করা যায়।',
+      precautionEn: 'Can be taken with or without food.',
     ),
     'aluminium hydroxide': MedicineProfile(
       bnName: 'অ্যালুমিনিয়াম হাইড্রক্সাইড (অ্যান্টাসিড)',
@@ -336,6 +398,8 @@ class BnTranslations {
       categoryEn: 'Antacid & Gas Relief',
       summaryBn: 'এই অ্যান্টাসিড পেটের অ্যাসিড প্রশমিত করে দ্রুত বুকজ্বালা ও গ্যাস দূর করে।',
       summaryEn: 'Neutralizes excess stomach acid for fast relief of heartburn and indigestion.',
+      precautionBn: 'অন্যান্য ওষুধ সেবনের অন্তত ২ ঘণ্টার ব্যবধান রাখুন যাতে শোষণে বাধা না ঘটে।',
+      precautionEn: 'Take 2 hours apart from other oral medications to avoid reducing their absorption.',
     ),
     'magnesium hydroxide': MedicineProfile(
       bnName: 'ম্যাগনেসিয়াম হাইড্রক্সাইড',
@@ -343,6 +407,8 @@ class BnTranslations {
       categoryEn: 'Antacid & Laxative',
       summaryBn: 'এই অ্যান্টাসিড পেটের অম্লতা কমায় এবং কোষ্ঠকাঠিন্য দূর করতে সাহায্য করে।',
       summaryEn: 'Relieves indigestion and sour stomach, and relieves occasional constipation.',
+      precautionBn: 'প্রচুর পানি পান করুন। অতিরিক্ত মাত্রায় পাতলা পায়খানা হতে পারে।',
+      precautionEn: 'Drink adequate fluids. May cause laxative effects in higher doses.',
     ),
     'sodium alginate': MedicineProfile(
       bnName: 'সোডিয়াম অ্যালজিনেট',
@@ -350,6 +416,8 @@ class BnTranslations {
       categoryEn: 'Acid Reflux Barrier',
       summaryBn: 'এই ওষুধটি পেটের অ্যাসিড উপরে উঠে বুকজ্বালা করা প্রতিরোধে একটি সুরক্ষামূলক স্তর তৈরি করে।',
       summaryEn: 'Forms a protective barrier over stomach contents to prevent acid reflux.',
+      precautionBn: 'খাবারের পর এবং শোবার আগে সেবন করা সবচেয়ে কার্যকর।',
+      precautionEn: 'Most effective when taken after meals and at bedtime.',
     ),
 
     // --- Antibiotics & Antibacterials ---
@@ -359,6 +427,8 @@ class BnTranslations {
       categoryEn: 'Antibacterial Antibiotic',
       summaryBn: 'এই অ্যান্টিবায়োটিকটি কান, নাক, গলা, দাঁত ও ফুসফুসের ব্যাকটেরিয়া সংক্রমণে ব্যবহার করা হয়।',
       summaryEn: 'Broad-spectrum antibiotic used for throat, ear, chest, and dental infections.',
+      precautionBn: 'পেনিসিলিনে অ্যালার্জি থাকলে চিকিৎসকের পরামর্শ নিন। পূর্ণ কোর্স শেষ করুন।',
+      precautionEn: 'Do not take if allergic to penicillin. Complete the full prescribed course.',
     ),
     'azithromycin': MedicineProfile(
       bnName: 'অ্যাজিথ্রোমাইসিন',
@@ -366,6 +436,8 @@ class BnTranslations {
       categoryEn: 'Macrolide Antibiotic',
       summaryBn: 'এই অ্যান্টিবায়োটিকটি কাশি, গলাব্যথা, নিউমোনিয়া ও শ্বাসযন্ত্রের ব্যাকটেরিয়া সংক্রমণে ব্যবহার করা হয়।',
       summaryEn: 'Antibiotic for respiratory infections, tonsillitis, bronchitis, and pneumonia.',
+      precautionBn: 'খাবারের ১ ঘণ্টা আগে বা ২ ঘণ্টা পরে সেবন করুন। পুরো ৩ বা ৫ দিনের কোর্স সম্পন্ন করুন।',
+      precautionEn: 'Take 1 hour before or 2 hours after meals. Complete the entire 3 or 5-day course.',
     ),
     'ciprofloxacin': MedicineProfile(
       bnName: 'সিপ্রোফ্লক্সাসিন',
@@ -373,6 +445,8 @@ class BnTranslations {
       categoryEn: 'Broad-Spectrum Antibiotic',
       summaryBn: 'এই অ্যান্টিবায়োটিকটি মূত্রনালী, পেটের সংক্রমণ, টাইফয়েড ও ডায়রিয়ার চিকিৎসায় ব্যবহৃত হয়।',
       summaryEn: 'Fluoroquinolone antibiotic for urinary tract, typhoid, and gut infections.',
+      precautionBn: 'প্রচুর পানি পান করুন। দুধ বা অ্যান্টাসিডের সাথে একই সময়ে খাবেন না (কমপক্ষে ২ ঘণ্টার ব্যবধান রাখুন)।',
+      precautionEn: 'Drink plenty of water. Avoid taking simultaneously with dairy products or antacids.',
     ),
     'levofloxacin': MedicineProfile(
       bnName: 'লেভোফ্লক্সাসিন',

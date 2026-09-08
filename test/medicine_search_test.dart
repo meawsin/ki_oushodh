@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:ki_oushodh/core/constants/bn_translations.dart';
 import 'package:ki_oushodh/domain/models/scan_result.dart';
 
@@ -47,10 +47,40 @@ void main() {
       expect(BnTranslations.isCorruptedText('Malformed \uFFFD text'), isTrue);
       expect(BnTranslations.isCorruptedText('Null \u0000 byte'), isTrue);
     });
+
+    test('Clinical precautions and safety warnings for key drug classes', () {
+      // Paracetamol maximum daily dose safety limit
+      final paraPrecautionBn = BnTranslations.getPrecaution('Paracetamol', language: 'bn');
+      expect(paraPrecautionBn, isNotNull);
+      expect(paraPrecautionBn, contains('৪,০০০ মিলিগ্রাম'));
+
+      final paraPrecautionEn = BnTranslations.getPrecaution('Paracetamol', language: 'en');
+      expect(paraPrecautionEn, isNotNull);
+      expect(paraPrecautionEn, contains('4,000 mg'));
+
+      // NSAID empty stomach warning
+      final ibuPrecautionBn = BnTranslations.getPrecaution('Ibuprofen', language: 'bn');
+      expect(ibuPrecautionBn, isNotNull);
+      expect(ibuPrecautionBn, contains('খাবার পর'));
+
+      // Antibiotic compliance warning
+      final aziPrecautionBn = BnTranslations.getPrecaution('Azithromycin', language: 'bn');
+      expect(aziPrecautionBn, isNotNull);
+      expect(aziPrecautionBn, contains('সম্পূর্ণ কোর্স'));
+
+      // Antibiotic fallback heuristic for unprofiled antibiotic
+      final cefPrecautionBn = BnTranslations.getPrecaution('Cefixime Trihydrate', language: 'bn');
+      expect(cefPrecautionBn, isNotNull);
+      expect(cefPrecautionBn, contains('সম্পূর্ণ কোর্স'));
+
+      final cefPrecautionEn = BnTranslations.getPrecaution('Cefixime Trihydrate', language: 'en');
+      expect(cefPrecautionEn, isNotNull);
+      expect(cefPrecautionEn, contains('Complete full course'));
+    });
   });
 
   group('ScanResult Speech & Text Tests', () {
-    test('Bangla spokenText is natural, respectful, and well-formed', () {
+    test('Bangla spokenText is natural, respectful, and includes precaution warnings', () {
       const result = ScanResult(
         medicineName: 'Napa',
         brandName: 'Napa',
@@ -60,15 +90,17 @@ void main() {
         summary: 'প্যারাসিটামল জ্বর, মাথাব্যথা ও সাধারণ শারীরিক ব্যথা উপশমে ব্যবহৃত হয়।',
         summaryEn: 'Paracetamol is used to relieve mild to moderate pain and reduce fever.',
         language: 'bn',
+        precaution: '২৪ ঘণ্টায় ৪,০০০ মিলিগ্রামের বেশি গ্রহণ করবেন না। অতিরিক্ত মাত্রায় লিভারের ক্ষতি হতে পারে।',
       );
 
       final spoken = result.spokenText;
       expect(spoken, startsWith('Napa। এটি প্যারাসিটামল গ্রুপের ওষুধ।'));
       expect(spoken, contains('ব্যথানাশক ও জ্বর নিবারক'));
       expect(spoken, contains('জ্বর, মাথাব্যথা'));
+      expect(spoken, contains('সতর্কতা: ২৪ ঘণ্টায় ৪,০০০ মিলিগ্রামের বেশি'));
     });
 
-    test('English spokenText is clear, natural, and informative', () {
+    test('English spokenText is clear, natural, and includes precaution warnings', () {
       const result = ScanResult(
         medicineName: 'Seclo',
         brandName: 'Seclo',
@@ -78,11 +110,14 @@ void main() {
         summary: 'Omeprazole reduces stomach acid and treats gastric ulcers.',
         summaryEn: 'Omeprazole reduces stomach acid and treats gastric ulcers.',
         language: 'en',
+        precaution: 'Best taken 30-60 minutes before meals, preferably in the morning.',
+        precautionEn: 'Best taken 30-60 minutes before meals, preferably in the morning.',
       );
 
       final spoken = result.spokenText;
       expect(spoken, startsWith('Seclo. This medicine contains Omeprazole, used for Gastric & Acidity.'));
       expect(spoken, contains('stomach acid'));
+      expect(spoken, contains('Safety precaution: Best taken 30-60 minutes before meals'));
     });
   });
 }

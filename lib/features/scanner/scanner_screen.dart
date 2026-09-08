@@ -31,8 +31,40 @@ class ScannerScreen extends ConsumerStatefulWidget {
 class _ScannerScreenState extends ConsumerState<ScannerScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   bool _navigating = false;
+  bool _isTorchActive = false;
+  Offset? _focusPoint;
+  bool _showFocusRing = false;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
+
+  void _onViewfinderTapped(TapDownDetails details, BoxConstraints constraints) {
+    if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) return;
+    final localPos = details.localPosition;
+    final normalizedX = (localPos.dx / constraints.maxWidth).clamp(0.0, 1.0);
+    final normalizedY = (localPos.dy / constraints.maxHeight).clamp(0.0, 1.0);
+
+    HapticFeedback.selectionClick();
+    ref.read(scannerViewModelProvider.notifier).setFocusPoint(Offset(normalizedX, normalizedY));
+
+    setState(() {
+      _focusPoint = localPos;
+      _showFocusRing = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (mounted) {
+        setState(() => _showFocusRing = false);
+      }
+    });
+  }
+
+  Future<void> _handleToggleTorch() async {
+    HapticFeedback.lightImpact();
+    final newState = await ref.read(scannerViewModelProvider.notifier).toggleTorch();
+    if (mounted) {
+      setState(() => _isTorchActive = newState);
+    }
+  }
 
   @override
   void initState() {
@@ -146,29 +178,74 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                 aspectRatio: 4 / 3,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildCameraPreview(cameraService, scanState, cs, language),
-                      if (scanState is ScanStateReady)
-                        _ScanFrame(pulseAnim: _pulseAnim, color: cs.primary),
-                      if (scanState is ScanStateProcessing)
-                        _ProcessingOverlay(
-                          cs: cs,
-                          step: scanState.step,
-                          language: language,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (details) => _onViewfinderTapped(details, constraints),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _buildCameraPreview(cameraService, scanState, cs, language),
+                            if (scanState is ScanStateReady)
+                              _ScanFrame(pulseAnim: _pulseAnim, color: cs.primary),
+                            if (_showFocusRing && _focusPoint != null)
+                              _FocusIndicator(point: _focusPoint!, color: cs.primary),
+                            if (scanState is ScanStateProcessing)
+                              _ProcessingOverlay(
+                                cs: cs,
+                                step: scanState.step,
+                                language: language,
+                              ),
+                            if (scanState is ScanStateError || scanState is ScanStateNoTextFound)
+                              _StatusOverlay(
+                                message: scanState is ScanStateError
+                                    ? scanState.message
+                                    : (language == 'bn'
+                                        ? 'লেখা পাওয়া যায়নি। আরও কাছে ধরুন।'
+                                        : 'No text found. Hold closer.'),
+                                isError: true,
+                                cs: cs,
+                              ),
+                            // Torch toggle button positioned top-right of viewfinder
+                            Positioned(
+                              top: 12,
+                              right: 12,
+                              child: Semantics(
+                                button: true,
+                                label: language == 'bn'
+                                    ? (_isTorchActive ? 'ফ্ল্যাশলাইট বন্ধ করুন' : 'ফ্ল্যাশলাইট চালু করুন')
+                                    : (_isTorchActive ? 'Turn off flashlight' : 'Turn on flashlight'),
+                                child: Material(
+                                  color: _isTorchActive
+                                      ? cs.primary
+                                      : Colors.black.withValues(alpha: 0.45),
+                                  shape: const CircleBorder(),
+                                  child: InkWell(
+                                    onTap: _handleToggleTorch,
+                                    customBorder: const CircleBorder(),
+                                    child: Container(
+                                      width: 44,
+                                      height: 44,
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        _isTorchActive
+                                            ? Icons.flash_on_rounded
+                                            : Icons.flash_off_rounded,
+                                        color: _isTorchActive
+                                            ? cs.onPrimary
+                                            : Colors.white.withValues(alpha: 0.9),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      if (scanState is ScanStateError || scanState is ScanStateNoTextFound)
-                        _StatusOverlay(
-                          message: scanState is ScanStateError
-                              ? scanState.message
-                              : (language == 'bn'
-                                  ? 'লেখা পাওয়া যায়নি। আরও কাছে ধরুন।'
-                                  : 'No text found. Hold closer.'),
-                          isError: true,
-                          cs: cs,
-                        ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -235,56 +312,62 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
             // ── Scan button ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: isProcessing
-                      ? null
-                      : () {
-                          HapticFeedback.heavyImpact();
-                          ref.read(scannerViewModelProvider.notifier).onCaptureTapped();
-                        },
-                  borderRadius: BorderRadius.circular(18),
-                  splashColor: cs.onPrimary.withValues(alpha: 0.2),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: isProcessing ? cs.primary.withValues(alpha: 0.35) : cs.primary,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: isProcessing
-                          ? []
-                          : [
-                              BoxShadow(
-                                color: cs.primary.withValues(alpha: 0.28),
-                                blurRadius: 20,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                    ),
-                    child: Center(
-                      child: scanState is ScanStateProcessing
-                          ? _ProcessingButtonContent(
-                              cs: cs,
-                              step: scanState.step,
-                              language: language,
-                            )
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.qr_code_scanner_rounded,
-                                    color: cs.onPrimary, size: 22),
-                                const SizedBox(width: 10),
-                                Text(
-                                  language == 'bn' ? 'স্ক্যান করুন' : 'Scan Medicine',
-                                  style: TextStyle(
-                                    color: cs.onPrimary,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+              child: Semantics(
+                button: true,
+                label: language == 'bn'
+                    ? (isProcessing ? 'ওষুধ স্ক্যান করা হচ্ছে' : 'ওষুধ স্ক্যান করার বোতাম')
+                    : (isProcessing ? 'Scanning medicine' : 'Scan medicine button'),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: isProcessing
+                        ? null
+                        : () {
+                            HapticFeedback.heavyImpact();
+                            ref.read(scannerViewModelProvider.notifier).onCaptureTapped();
+                          },
+                    borderRadius: BorderRadius.circular(18),
+                    splashColor: cs.onPrimary.withValues(alpha: 0.2),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: isProcessing ? cs.primary.withValues(alpha: 0.35) : cs.primary,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: isProcessing
+                            ? []
+                            : [
+                                BoxShadow(
+                                  color: cs.primary.withValues(alpha: 0.28),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 6),
                                 ),
                               ],
-                            ),
+                      ),
+                      child: Center(
+                        child: scanState is ScanStateProcessing
+                            ? _ProcessingButtonContent(
+                                cs: cs,
+                                step: scanState.step,
+                                language: language,
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.qr_code_scanner_rounded,
+                                      color: cs.onPrimary, size: 22),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    language == 'bn' ? 'স্ক্যান করুন' : 'Scan Medicine',
+                                    style: TextStyle(
+                                      color: cs.onPrimary,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
                     ),
                   ),
                 ),
@@ -299,35 +382,43 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
               child: Row(
                 children: [
                   Expanded(
+                    child: Semantics(
+                      button: true,
+                      label: language == 'bn' ? 'স্ক্যান ইতিহাস দেখুন' : 'View scan history',
+                      child: _SecondaryButton(
+                        icon: Icons.history_rounded,
+                        label: language == 'bn' ? 'ইতিহাস' : 'History',
+                        cs: cs,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.of(context).push(PageRouteBuilder(
+                            pageBuilder: (_, a, __) => const HistoryScreen(),
+                            transitionsBuilder: (_, anim, __, child) =>
+                                FadeTransition(opacity: anim, child: child),
+                            transitionDuration: const Duration(milliseconds: 250),
+                          ));
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Semantics(
+                    button: true,
+                    label: language == 'bn' ? 'অ্যাক্সেসিবিলিটি সেটিংস' : 'Accessibility settings',
                     child: _SecondaryButton(
-                      icon: Icons.history_rounded,
-                      label: language == 'bn' ? 'ইতিহাস' : 'History',
+                      icon: Icons.tune_rounded,
                       cs: cs,
+                      width: 52,
                       onTap: () {
                         HapticFeedback.selectionClick();
                         Navigator.of(context).push(PageRouteBuilder(
-                          pageBuilder: (_, a, __) => const HistoryScreen(),
+                          pageBuilder: (_, a, __) => const SettingsScreen(),
                           transitionsBuilder: (_, anim, __, child) =>
                               FadeTransition(opacity: anim, child: child),
                           transitionDuration: const Duration(milliseconds: 250),
                         ));
                       },
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  _SecondaryButton(
-                    icon: Icons.tune_rounded,
-                    cs: cs,
-                    width: 52,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      Navigator.of(context).push(PageRouteBuilder(
-                        pageBuilder: (_, a, __) => const SettingsScreen(),
-                        transitionsBuilder: (_, anim, __, child) =>
-                            FadeTransition(opacity: anim, child: child),
-                        transitionDuration: const Duration(milliseconds: 250),
-                      ));
-                    },
                   ),
                 ],
               ),
@@ -666,6 +757,51 @@ class _SecondaryButton extends StatelessWidget {
                 )),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Tap-to-focus indicator ──────────────────────────────────────────────────
+class _FocusIndicator extends StatelessWidget {
+  final Offset point;
+  final Color color;
+
+  const _FocusIndicator({required this.point, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: point.dx - 28,
+      top: point.dy - 28,
+      child: IgnorePointer(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 1.35, end: 1.0),
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutBack,
+          builder: (_, scale, child) => Transform.scale(
+            scale: scale,
+            child: child,
+          ),
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              border: Border.all(color: color, width: 2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
           ),
         ),
       ),

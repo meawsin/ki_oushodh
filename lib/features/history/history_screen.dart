@@ -284,6 +284,8 @@ class _HistoryCard extends ConsumerWidget {
               summary: item.summary,
               summaryEn: item.summaryEn ?? item.summary,
               language: item.language,
+              precaution: BnTranslations.getPrecaution(item.genericName, language: item.language),
+              precautionEn: BnTranslations.getPrecaution(item.genericName, language: 'en'),
             );
             // Tap the card → open full result view
             Navigator.of(context).push(PageRouteBuilder(

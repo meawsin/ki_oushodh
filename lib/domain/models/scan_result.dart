@@ -8,6 +8,8 @@ class ScanResult {
   final String? category;
   final String summary;          // In the selected language
   final String summaryEn;        // Always English — TTS fallback for Bangla
+  final String? precaution;       // In the selected language
+  final String? precautionEn;     // Precaution in English
   final String language;
 
   const ScanResult({
@@ -18,6 +20,8 @@ class ScanResult {
     this.category,
     required this.summary,
     required this.summaryEn,
+    this.precaution,
+    this.precautionEn,
     required this.language,
   });
 
@@ -30,12 +34,18 @@ class ScanResult {
       final catPart = (category != null && category!.trim().isNotEmpty)
           ? '$category। '
           : '';
-      return '$medicineName। এটি $gen। $catPart$summary';
+      final precPart = (precaution != null && precaution!.trim().isNotEmpty)
+          ? ' সতর্কতা: $precaution'
+          : '';
+      return '$medicineName। এটি $gen। $catPart$summary$precPart';
     }
     final catPart = (category != null && category!.trim().isNotEmpty)
         ? ', used for $category'
         : '';
-    return '$medicineName. This medicine contains $genericName$catPart. $summary';
+    final precPart = (precaution != null && precaution!.trim().isNotEmpty)
+        ? ' Precaution: $precaution'
+        : '';
+    return '$medicineName. This medicine contains $genericName$catPart. $summary$precPart';
   }
 
   /// English spoken text — used as TTS fallback when Bangla voice unavailable
@@ -43,6 +53,9 @@ class ScanResult {
     final catPart = (category != null && category!.trim().isNotEmpty)
         ? ', used for $category'
         : '';
-    return '$medicineName. This medicine contains $genericName$catPart. $summaryEn';
+    final precPart = (precautionEn != null && precautionEn!.trim().isNotEmpty)
+        ? ' Precaution: $precautionEn'
+        : (precaution != null && language == 'en' ? ' Precaution: $precaution' : '');
+    return '$medicineName. This medicine contains $genericName$catPart. $summaryEn$precPart';
   }
 }

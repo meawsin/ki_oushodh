@@ -7,6 +7,7 @@
 //   - Error messages localized consistently
 //   - Camera/TTS init now sequential (TTS first — faster perceived startup)
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/scan_result.dart';
@@ -117,25 +118,24 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
     final language = ref.read(languageProvider);
 
     // Step 1: Capture
-    state = ScanStateProcessing(
-      ProcessingStep.capturing,
-      language == 'bn' ? 'ছবি তোলা হচ্ছে...' : 'Capturing...',
-    );
+    final capturingMsg = language == 'bn' ? 'ছবি তোলা হচ্ছে...' : 'Capturing...';
+    state = ScanStateProcessing(ProcessingStep.capturing, capturingMsg);
+    SemanticsService.announce(capturingMsg, TextDirection.ltr);
 
     try {
       final imagePath = await _camera.captureFrame();
 
       // Step 2: OCR
-      state = ScanStateProcessing(
-        ProcessingStep.reading,
-        language == 'bn' ? 'লেখা পড়া হচ্ছে...' : 'Reading text...',
-      );
+      final readingMsg = language == 'bn' ? 'লেখা পড়া হচ্ছে...' : 'Reading text...';
+      state = ScanStateProcessing(ProcessingStep.reading, readingMsg);
+      SemanticsService.announce(readingMsg, TextDirection.ltr);
 
       final rawText = await _ocr.extractText(imagePath);
 
       final validationError = _ocr.validateAsMedicine(rawText, language);
       if (validationError != null) {
         state = ScanStateError(validationError);
+        SemanticsService.announce(validationError, TextDirection.ltr);
         await _tts.speak(
           validationError,
           language: language,
@@ -146,10 +146,9 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
       }
 
       // Step 3: Identify
-      state = ScanStateProcessing(
-        ProcessingStep.identifying,
-        language == 'bn' ? 'ওষুধ খোঁজা হচ্ছে...' : 'Identifying medicine...',
-      );
+      final identifyingMsg = language == 'bn' ? 'ওষুধ খোঁজা হচ্ছে...' : 'Identifying medicine...';
+      state = ScanStateProcessing(ProcessingStep.identifying, identifyingMsg);
+      SemanticsService.announce(identifyingMsg, TextDirection.ltr);
 
       final result = await _llm.identifyMedicine(
         rawOcrText: rawText,
@@ -157,6 +156,11 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
       );
 
       state = ScanStateResult(result);
+      final identifiedMsg = language == 'bn'
+          ? '${result.medicineName} চিহ্নিত হয়েছে'
+          : 'Identified ${result.medicineName}';
+      SemanticsService.announce(identifiedMsg, TextDirection.ltr);
+
       await _tts.speak(
         result.spokenText,
         language: language,
@@ -165,12 +169,15 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
 
     } on CameraServiceException catch (e) {
       state = ScanStateError(e.message);
+      SemanticsService.announce(e.message, TextDirection.ltr);
       await _tts.speak(e.message, language: language, englishFallback: e.message);
     } on OCRServiceException catch (e) {
       state = ScanStateError(e.message);
+      SemanticsService.announce(e.message, TextDirection.ltr);
       await _tts.speak(e.message, language: language, englishFallback: e.message);
     } on LLMServiceException catch (e) {
       state = ScanStateError(e.message);
+      SemanticsService.announce(e.message, TextDirection.ltr);
       await _tts.speak(
         e.message,
         language: language,
@@ -181,12 +188,32 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
           ? 'একটি সমস্যা হয়েছে। আবার চেষ্টা করুন।'
           : 'Something went wrong. Please try again.';
       state = ScanStateError(msg);
+      SemanticsService.announce(msg, TextDirection.ltr);
       await _tts.speak(
         msg,
         language: language,
         englishFallback: 'Something went wrong. Please try again.',
       );
     }
+  }
+
+  Future<bool> toggleTorch() async {
+    final isTorch = await _camera.toggleTorch();
+    final lang = ref.read(languageProvider);
+    final msg = isTorch
+        ? (lang == 'bn' ? 'ফ্ল্যাশলাইট চালু হয়েছে' : 'Flashlight on')
+        : (lang == 'bn' ? 'ফ্ল্যাশলাইট বন্ধ হয়েছে' : 'Flashlight off');
+    SemanticsService.announce(msg, TextDirection.ltr);
+    return isTorch;
+  }
+
+  Future<void> setFocusPoint(Offset normalizedPoint) async {
+    await _camera.setFocusPoint(normalizedPoint);
+    final lang = ref.read(languageProvider);
+    SemanticsService.announce(
+      lang == 'bn' ? 'ক্যামেরা ফোকাস করা হয়েছে' : 'Camera focused',
+      TextDirection.ltr,
+    );
   }
 
   Future<void> reset() async {

@@ -90,8 +90,11 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
     final cat = (widget.result.category != null && widget.result.category!.isNotEmpty)
         ? ' [${widget.result.category}]'
         : '';
+    final precautionText = (widget.result.precaution != null && widget.result.precaution!.isNotEmpty)
+        ? '\n\n⚠️ ${widget.result.language == 'bn' ? 'সতর্কতা:' : 'Precaution:'} ${widget.result.precaution}'
+        : '';
     final text =
-        '${widget.result.medicineName} (${widget.result.genericName})$cat\n\n${widget.result.summary}';
+        '${widget.result.medicineName} (${widget.result.genericName})$cat\n\n${widget.result.summary}$precautionText';
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -278,14 +281,82 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                           const SizedBox(height: 12),
                           Expanded(
                             child: SingleChildScrollView(
-                              child: SelectableText(
-                                result.summary,
-                                style: TextStyle(
-                                  color: cs.onSurface,
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.7,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SelectableText(
+                                    result.summary,
+                                    style: TextStyle(
+                                      color: cs.onSurface,
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.7,
+                                    ),
+                                  ),
+                                  if (result.precaution != null &&
+                                      result.precaution!.isNotEmpty) ...[
+                                    const SizedBox(height: 20),
+                                    Semantics(
+                                      label: language == 'bn'
+                                          ? 'জরুরি সতর্কতা: ${result.precaution}'
+                                          : 'Safety Precaution: ${result.precaution}',
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: Colors.amber.shade700
+                                                .withValues(alpha: 0.35),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Icon(
+                                              Icons.warning_amber_rounded,
+                                              color: Colors.amber.shade800,
+                                              size: 22,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    language == 'bn'
+                                                        ? 'জরুরি সতর্কতা ও নিয়মাবলী'
+                                                        : 'SAFETY PRECAUTION & DOSAGE',
+                                                    style: TextStyle(
+                                                      color: Colors.amber.shade900,
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w800,
+                                                      letterSpacing: 0.8,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  SelectableText(
+                                                    result.precaution!,
+                                                    style: TextStyle(
+                                                      color: cs.onSurface,
+                                                      fontSize: 14,
+                                                      height: 1.55,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 16),
+                                ],
                               ),
                             ),
                           ),
