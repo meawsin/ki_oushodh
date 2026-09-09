@@ -1,6 +1,9 @@
 # Ki Oushodh (কী ওষুধ)
 ### *Edge-AI Assistive Healthcare System for Offline Medicine Identification and Auditory Literacy in Resource-Constrained Environments*
 
+[![Download APK](https://img.shields.io/badge/📲%20Download%20APK-v1.0%20(Release)-3DDC84?logo=android&logoColor=white&style=for-the-badge)](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk)
+[![GitHub Releases](https://img.shields.io/badge/🏷️%20GitHub%20Releases-v1.0-24292e?logo=github&logoColor=white&style=for-the-badge)](https://github.com/meawsin/ki_oushodh/releases)
+
 [![Flutter](https://img.shields.io/badge/Framework-Flutter%203.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Language-Dart%203.x-0175C2?logo=dart&logoColor=white)](https://dart.dev)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture%20%7C%20MVVM-success)](#system-architecture)
@@ -8,6 +11,31 @@
 [![Offline First](https://img.shields.io/badge/Capability-100%25%20Offline%20Inference-brightgreen)](#offline-first-resilience)
 [![SDG Alignment](https://img.shields.io/badge/UN%20SDGs-SDG%203%20%7C%20SDG%2010-E5243B)](#academic-impact--sustainable-development-goals)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+---
+
+## 📥 Download App (Direct Android Install)
+
+Test Ki Oushodh on any physical Android phone without needing to compile from source:
+
+<p align="center">
+  <a href="https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk">
+    <img src="https://img.shields.io/badge/⬇️%20Direct%20Download-ki--oushudh--v1.0.apk%20(83.2%20MB)-02569B?style=for-the-badge&logo=android&logoColor=white" height="42" alt="Direct Download APK" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/meawsin/ki_oushodh/releases">
+    <img src="https://img.shields.io/badge/📦%20GitHub%20Releases%20Page-v1.0-24292e?style=for-the-badge&logo=github&logoColor=white" height="42" alt="GitHub Releases Page" />
+  </a>
+</p>
+
+| Package | Version | Compatibility | Offline Database |
+|---|---|---|---|
+| [`ki-oushudh-v1.0.apk`](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk) | **v1.0.0** | Android 5.0+ (API 21+) — ARMv7 & ARM64 | 13,929 Brands + 1,640 Generics |
+
+> **Quick 3-Step Setup on Phone**:
+> 1. Tap **[Direct Download](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk)** on your Android device.
+> 2. Open `ki-oushudh-v1.0.apk` from your Downloads and tap **Install** (*enable "Install Unknown Apps" if prompted*).
+> 3. Open **কী ওষুধ**, grant camera permission, and scan any medicine packaging or blister packet!
 
 ---
 
@@ -263,26 +291,32 @@ flutter analyze
 
 You can install and test Ki Oushodh on any physical Android device without needing Flutter, an IDE, or developer tools installed on that device.
 
-### 1. Build the Release APK
-Run the following command in the project root:
+### Option A: Download from GitHub Releases (Quickest)
+Directly download the pre-built standalone APK to your phone:
+- 📲 **[Download ki-oushudh-v1.0.apk](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk)** *(83.2 MB)*
+- Or browse all releases on the **[GitHub Releases Page](https://github.com/meawsin/ki_oushodh/releases)**.
+
+### Option B: Build the Release APK Locally
+If building from source, run:
 ```bash
 flutter build apk --release
 ```
 
-The compiled standalone release APK will be generated at:
+The compiled standalone release APK is generated at:
 ```
-build/app/outputs/flutter-apk/app-release.apk
+ki-oushudh v1.0.apk (Project Root)
+build/app/outputs/flutter-apk/ki-oushudh v1.0.apk
 ```
 
 ### 2. Transfer to Any Android Device
-You can send `app-release.apk` to any Android phone via:
+You can send `ki-oushudh v1.0.apk` to any Android phone via:
 - **USB Cable**: Copy to the phone's `Download` folder.
 - **Google Drive / Dropbox**: Upload and download on the device.
 - **WhatsApp / Telegram**: Send the APK file directly to the test phone.
 - **Nearby Share / Quick Share**: Wirelessly send to nearby devices.
 
 ### 3. Install on the Device
-1. Open the file manager on the phone and tap **`app-release.apk`**.
+1. Open the file manager on the phone and tap **`ki-oushudh v1.0.apk`**.
 2. If prompted, enable **"Install unknown apps"** or **"Allow from this source"** in Android Settings.
 3. Tap **Install** and open **"কী ওষুধ"**.
 4. When first opened, grant **Camera Permission** when requested.
