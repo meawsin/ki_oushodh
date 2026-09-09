@@ -29,8 +29,8 @@ class TTSService {
     _isBanglaAvailable = await _checkBanglaAvailability();
 
     await _tts.setVolume(1.0);
-    await _tts.setSpeechRate(0.48);   // Warmer pace — not robotic, not rushed
-    await _tts.setPitch(1.05);         // Slightly warmer than flat 1.0
+    await _tts.setSpeechRate(0.43);   // Calmer, gentle cadence for low-literacy users
+    await _tts.setPitch(0.94);         // Warm, soothing, slightly deeper tone (removes sharp/harsh tone)
 
     _tts.setStartHandler(() => _isSpeaking = true);
     _tts.setCompletionHandler(() => _isSpeaking = false);
@@ -93,6 +93,32 @@ class TTSService {
           .replaceAll('+', ' এবং ')
           .replaceAll('&', ' এবং ')
           .replaceAll('/', ' অথবা ');
+
+      const phonetics = {
+        'napa extend': 'নাপা এক্সটেন্ড',
+        'napa extra': 'নাপা এক্সট্রা',
+        'napa': 'নাপা',
+        'extend': 'এক্সটেন্ড',
+        'extra': 'এক্সট্রা',
+        'entacyd plus': 'এন্টাসিড প্লাস',
+        'entacyd': 'এন্টাসিড',
+        'maxomega': 'ম্যাক্সওমেগা',
+        'max omega': 'ম্যাক্সওমেগা',
+        'omega': 'ওমেগা',
+        'simethicone': 'সিমেথিকন',
+        'paracetamol': 'প্যারাসিটামল',
+        'antacid': 'অ্যান্টাসিড',
+        'ace plus': 'এস প্লাস',
+        'ace': 'এস',
+        'seclo': 'সেকলো',
+        'sergel': 'সারজেল',
+        'square': 'স্কয়ার',
+        'beximco': 'বেক্সিমকো',
+        'renata': 'রেনাটা',
+      };
+      phonetics.forEach((en, bn) {
+        cleaned = cleaned.replaceAll(RegExp('\\b$en\\b', caseSensitive: false), bn);
+      });
     } else {
       cleaned = cleaned
           .replaceAll(RegExp(r'\bmg\b', caseSensitive: false), 'milligram')

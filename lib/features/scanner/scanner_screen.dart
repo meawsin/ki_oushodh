@@ -292,8 +292,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                           const SizedBox(height: 2),
                           Text(
                             language == 'bn'
-                                ? 'তারপর নিচের বোতামটি চাপুন'
-                                : 'Then press the button below',
+                                ? 'স্পষ্ট করতে স্ক্রিনে ট্যাপ করুন, তারপর স্ক্যান করুন'
+                                : 'Tap screen to focus, then press scan below',
                             style: TextStyle(
                               color: cs.onSurfaceVariant,
                               fontSize: 11,

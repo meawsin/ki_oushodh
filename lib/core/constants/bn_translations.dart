@@ -29,16 +29,80 @@ class BnTranslations {
 
   /// Returns Bengali transliteration for smooth TTS pronunciation
   static String? getGenericNameBn(String genericName) {
-    final lower = genericName.toLowerCase();
+    final lower = genericName.toLowerCase().trim();
+    if (_profiles.containsKey(lower)) return _profiles[lower]!.bnName;
+    for (final entry in _profiles.entries) {
+      if (lower.startsWith('${entry.key} ') || lower.endsWith(' ${entry.key}') || lower.contains(' ${entry.key} ')) {
+        return entry.value.bnName;
+      }
+    }
     for (final entry in _profiles.entries) {
       if (lower.contains(entry.key)) return entry.value.bnName;
     }
     return null;
   }
 
+  static const Map<String, String> _brandNameToBn = {
+    'napa extend': 'নাপা এক্সটেন্ড',
+    'napa extra': 'নাপা এক্সট্রা',
+    'napa': 'নাপা',
+    'ace plus': 'এস প্লাস',
+    'ace extend': 'এস এক্সটেন্ড',
+    'ace': 'এস',
+    'entacyd plus': 'এন্টাসিড প্লাস',
+    'entacyd': 'এন্টাসিড',
+    'antacid plus': 'এন্টাসিড প্লাস',
+    'antacid': 'এন্টাসিড',
+    'maxomega': 'ম্যাক্সওমেগা',
+    'max omega': 'ম্যাক্সওমেগা',
+    'omega fatty': 'ওমেগা-৩',
+    'omega acid': 'ওমেগা-৩',
+    'salmon fish': 'স্যামন মাছের তেল',
+    'seclo': 'সেকলো',
+    'sergel': 'সারজেল',
+    'losectil': 'লোসেকটিল',
+    'pantobex': 'প্যান্টোবেক্স',
+    'monas': 'মোনাস',
+    'alatrol': 'অ্যালাট্রোল',
+    'fenofex': 'ফেনোফেক্স',
+    'fexo': 'ফেক্সো',
+    'ebatin': 'এবাটিন',
+    'bextram gold': 'বেকস্ট্রাম গোল্ড',
+    'silver': 'সিলভার',
+    'e-cap': 'ই-ক্যাপ',
+    'e cap': 'ই-ক্যাপ',
+    'renova': 'রেনোভা',
+    'fast': 'ফাস্ট',
+    'tory': 'টোরি',
+    'flacol': 'ফ্ল্যাকল',
+    'disopan': 'ডাইসোপ্যান',
+    'simethicone': 'সিমেথিকন',
+    'paracetamol': 'প্যারাসিটামল',
+  };
+
+  /// Returns friendly Bengali pronunciation of medicine brand names
+  static String getBrandNameBn(String brandName) {
+    final lower = brandName.toLowerCase().trim();
+    if (_brandNameToBn.containsKey(lower)) return _brandNameToBn[lower]!;
+    for (final entry in _brandNameToBn.entries) {
+      if (lower == entry.key || lower.startsWith('${entry.key} ')) {
+        return entry.value;
+      }
+    }
+    return brandName;
+  }
+
   /// Returns clean therapeutic category in selected language
   static String getCategory(String genericName, {required String language}) {
-    final lower = genericName.toLowerCase();
+    final lower = genericName.toLowerCase().trim();
+    if (_profiles.containsKey(lower)) {
+      return language == 'bn' ? _profiles[lower]!.categoryBn : _profiles[lower]!.categoryEn;
+    }
+    for (final entry in _profiles.entries) {
+      if (lower.startsWith('${entry.key} ') || lower.endsWith(' ${entry.key}') || lower.contains(' ${entry.key} ')) {
+        return language == 'bn' ? entry.value.categoryBn : entry.value.categoryEn;
+      }
+    }
     for (final entry in _profiles.entries) {
       if (lower.contains(entry.key)) {
         return language == 'bn' ? entry.value.categoryBn : entry.value.categoryEn;
@@ -47,8 +111,17 @@ class BnTranslations {
     if (lower.contains('cef') || lower.contains('cillin') || lower.contains('mycin') || lower.contains('floxacin')) {
       return language == 'bn' ? 'অ্যান্টিবায়োটিক' : 'Antibiotic';
     }
-    if (lower.contains('prazole') || lower.contains('tidine') || lower.contains('antacid')) {
+    if (lower.contains('aluminium') || lower.contains('magnesium') || lower.contains('antacid')) {
+      return language == 'bn' ? 'অ্যান্টাসিড ও বুকজ্বালা' : 'Antacid & Heartburn';
+    }
+    if (lower.contains('prazole') || lower.contains('tidine')) {
       return language == 'bn' ? 'গ্যাস্ট্রিক ও অ্যাসিডিটি' : 'Gastric & Acidity';
+    }
+    if (lower.contains('simethicone')) {
+      return language == 'bn' ? 'পেটের গ্যাস ও পেট ফাঁপা' : 'Gas & Bloating Relief';
+    }
+    if (lower.contains('omega') || lower.contains('salmon')) {
+      return language == 'bn' ? 'হার্ট ও স্বাস্থ্য সাপ্লিমেন্ট' : 'Heart & Health Supplement';
     }
     if (lower.contains('sartan') || lower.contains('olol') || lower.contains('dipine') || lower.contains('statin')) {
       return language == 'bn' ? 'উচ্চ রক্তচাপ ও হৃদরোগ' : 'Heart & Blood Pressure';
@@ -64,7 +137,17 @@ class BnTranslations {
 
   /// Returns safety precaution and dosage advice in selected language
   static String? getPrecaution(String genericName, {required String language}) {
-    final lower = genericName.toLowerCase();
+    final lower = genericName.toLowerCase().trim();
+    if (_profiles.containsKey(lower)) {
+      final prec = language == 'bn' ? _profiles[lower]!.precautionBn : _profiles[lower]!.precautionEn;
+      if (prec != null && prec.isNotEmpty) return prec;
+    }
+    for (final entry in _profiles.entries) {
+      if (lower.startsWith('${entry.key} ') || lower.endsWith(' ${entry.key}') || lower.contains(' ${entry.key} ')) {
+        final prec = language == 'bn' ? entry.value.precautionBn : entry.value.precautionEn;
+        if (prec != null && prec.isNotEmpty) return prec;
+      }
+    }
     for (final entry in _profiles.entries) {
       if (lower.contains(entry.key)) {
         final prec = language == 'bn' ? entry.value.precautionBn : entry.value.precautionEn;
@@ -87,14 +170,37 @@ class BnTranslations {
           ? 'নিয়মিত একই সময়ে সেবন করুন। চিকিৎসকের পরামর্শ ছাড়া হঠাৎ বন্ধ করবেন না।'
           : 'Take regularly at the same time daily. Do not discontinue abruptly.';
     }
+    if (lower.contains('omega') || lower.contains('salmon')) {
+      return language == 'bn'
+          ? 'খাবারের সাথে বা ভরা পেটে সেবন করুন।'
+          : 'Take with or immediately after meals.';
+    }
+    if (lower.contains('simethicone')) {
+      return language == 'bn'
+          ? 'খাবারের পরে বা চিকিৎসকের পরামর্শ মতো সেবন করুন।'
+          : 'Take after meals or at bedtime as needed.';
+    }
+    if (lower.contains('aluminium') && lower.contains('magnesium')) {
+      return language == 'bn'
+          ? 'চিবিয়ে খাবেন এবং অন্যান্য ওষুধের অন্তত ২ ঘণ্টা আগে বা পরে খাবেন।'
+          : 'Chew thoroughly. Take 2 hours apart from other medications.';
+    }
     return null;
   }
 
   /// Translates a raw indication or generic medicine into plain Bangla.
   static String translateSummary(String englishSummary, String genericName) {
-    final genericLower = genericName.toLowerCase();
+    final genericLower = genericName.toLowerCase().trim();
 
     // 1. Direct profile match
+    if (_profiles.containsKey(genericLower)) {
+      return _profiles[genericLower]!.summaryBn;
+    }
+    for (final entry in _profiles.entries) {
+      if (genericLower.startsWith('${entry.key} ') || genericLower.endsWith(' ${entry.key}') || genericLower.contains(' ${entry.key} ')) {
+        return entry.value.summaryBn;
+      }
+    }
     for (final entry in _profiles.entries) {
       if (genericLower.contains(entry.key)) {
         return entry.value.summaryBn;
@@ -109,13 +215,9 @@ class BnTranslations {
       }
     }
 
-    // 3. If raw English summary is clean, return formatted Bengali frame
-    final cleaned = cleanRawSummary(englishSummary);
-    if (cleaned.isNotEmpty && !isCorruptedText(cleaned)) {
-      return 'এই ওষুধটি $cleaned এর জন্য ব্যবহার করা হয়।';
-    }
-
-    return 'এই ওষুধটি চিকিৎসকের পরামর্শ অনুযায়ী নির্দিষ্ট রোগের চিকিৎসায় ব্যবহার করা হয়।';
+    // 3. Fallback: NEVER inject raw English text into Bengali!
+    final catBn = getCategory(genericName, language: 'bn');
+    return 'এই ওষুধটি $catBn এর চিকিৎসায় নির্দিষ্ট নিয়মে ব্যবহার করা হয়।';
   }
 
   /// Returns a clean, user-friendly English summary
@@ -143,7 +245,7 @@ class BnTranslations {
 
   /// Checks if a string contains corrupted encoding/mojibake characters
   static bool isCorruptedText(String text) {
-    if (text.contains('\uFFFD') || text.contains('') || text.contains('\u0000')) return true;
+    if (text.contains('\uFFFD') || text.contains('\u0000')) return true;
     final nonAsciiCount = text.codeUnits.where((c) => c > 127 && c < 0x0980).length;
     return nonAsciiCount > 5 && text.contains('?');
   }
@@ -185,6 +287,9 @@ class BnTranslations {
     'analgesic': 'এই ওষুধটি ব্যথানাশক হিসেবে কাজ করে এবং জ্বর কমায়।',
 
     // Stomach & acidity
+    'flatulence': 'এই ওষুধটি পেটের অতিরিক্ত গ্যাস ও পেট ফাঁপা কমাতে ব্যবহার করা হয়।',
+    'antiflatulent': 'এই ওষুধটি পেটের গ্যাস ও পেট ফাঁপা দূর করতে সাহায্য করে।',
+    'windy colic': 'এই ওষুধটি পেটের গ্যাস ও ফাঁপা দূর করতে সাহায্য করে।',
     'hyperacidity': 'এই ওষুধটি পেটের অ্যাসিডিটি, বুকজ্বালা এবং গ্যাস কমাতে ব্যবহার করা হয়।',
     'heartburn': 'এই ওষুধটি বুকজ্বালা ও পেটের অ্যাসিডিটি কমাতে ব্যবহার করা হয়।',
     'gastric': 'এই ওষুধটি পেটের গ্যাস, অ্যাসিডিটি এবং বদহজম কমাতে ব্যবহার করা হয়।',
@@ -203,7 +308,10 @@ class BnTranslations {
     'respiratory': 'এই ওষুধটি শ্বাসযন্ত্রের সংক্রমণ ও কাশি চিকিৎসায় ব্যবহার করা হয়।',
     'pneumonia': 'এই ওষুধটি নিউমোনিয়া ও ফুসফুসের সংক্রমণ চিকিৎসায় ব্যবহার করা হয়।',
 
-    // Blood pressure & heart
+    // Blood pressure, heart & cholesterol
+    'triglyceride': 'এই ওষুধটি রক্তের ক্ষতিকর চর্বি কমাতে এবং হার্ট সুস্থ রাখতে সাহায্য করে।',
+    'omega': 'এই ওষুধটি স্বাস্থ্যকর ওমেগা-৩ পুষ্টি জোগায় এবং হৃদযন্ত্র ভালো রাখে।',
+    'salmon': 'এই ওষুধটি স্বাস্থ্যকর ওমেগা-৩ পুষ্টি জোগায় এবং হৃদযন্ত্র ভালো রাখে।',
     'high blood pressure': 'এই ওষুধটি উচ্চ রক্তচাপ নিয়ন্ত্রণে ব্যবহার করা হয়।',
     'hypertension': 'এই ওষুধটি উচ্চ রক্তচাপ কমাতে ব্যবহার করা হয়।',
     'blood pressure': 'এই ওষুধটি রক্তচাপ নিয়ন্ত্রণে ব্যবহার করা হয়।',
@@ -257,12 +365,12 @@ class BnTranslations {
     // --- Pain, Fever & Inflammation ---
     'paracetamol': MedicineProfile(
       bnName: 'প্যারাসিটামল',
-      categoryBn: 'ব্যথানাশক ও জ্বর',
+      categoryBn: 'জ্বর ও ব্যথানাশক',
       categoryEn: 'Pain Relief & Fever',
-      summaryBn: 'এই ওষুধটি জ্বর, মাথাব্যথা এবং শরীর ব্যথা কমাতে ব্যবহার করা হয়।',
+      summaryBn: 'এই ওষুধটি জ্বর, মাথাব্যথা এবং সাধারণ শরীর ব্যথা কমাতে ব্যবহার করা হয়।',
       summaryEn: 'Used for fever, headache, body aches, and pain relief.',
-      precautionBn: 'দিনে ৪০০০ মিলিগ্রাম (৮টি ৫০০ মিগ্রা ট্যাবলেটের বেশি) সেবন করবেন না। অতিরিক্ত মাত্রায় লিভারের ক্ষতি হতে পারে।',
-      precautionEn: 'Do not exceed 4,000 mg (8 x 500mg tablets) in 24 hours. Overdose can cause severe liver damage.',
+      precautionBn: '২৪ ঘণ্টায় ৪০০০ মিলিগ্রাম বা ৮টির বেশি ট্যাবলেট খাবেন না। অতিরিক্ত সেবনে লিভারের ক্ষতি হতে পারে।',
+      precautionEn: 'Do not exceed 4,000 mg (8 tablets) in 24 hours. Overdose damages the liver.',
     ),
     'ibuprofen': MedicineProfile(
       bnName: 'আইবুপ্রোফেন',
@@ -418,6 +526,25 @@ class BnTranslations {
       summaryEn: 'Forms a protective barrier over stomach contents to prevent acid reflux.',
       precautionBn: 'খাবারের পর এবং শোবার আগে সেবন করা সবচেয়ে কার্যকর।',
       precautionEn: 'Most effective when taken after meals and at bedtime.',
+    ),
+
+    'aluminium hydroxide + magnesium hydroxide + simethicone': MedicineProfile(
+      bnName: 'অ্যান্টাসিড প্লাস',
+      categoryBn: 'গ্যাস্ট্রিক ও বুকজ্বালা',
+      categoryEn: 'Antacid, Heartburn & Gas Relief',
+      summaryBn: 'এই অ্যান্টাসিড বুকজ্বালা, গ্যাস্ট্রিক এবং পেটের অতিরিক্ত গ্যাস দ্রুত দূর করে।',
+      summaryEn: 'Neutralizes excess stomach acid and relieves gas, bloating, and heartburn.',
+      precautionBn: 'ট্যাবলেট চিবিয়ে খাবেন এবং অন্যান্য ওষুধের অন্তত ২ ঘণ্টা আগে বা পরে খাবেন।',
+      precautionEn: 'Chew tablets thoroughly. Take 2 hours apart from other medications.',
+    ),
+    'simethicone': MedicineProfile(
+      bnName: 'সিমেথিকন (গ্যাসের ওষুধ)',
+      categoryBn: 'পেটের গ্যাস ও পেট ফাঁপা',
+      categoryEn: 'Gas & Bloating Relief',
+      summaryBn: 'এই ওষুধটি পেটের অতিরিক্ত গ্যাস, পেট ফাঁপা এবং অস্বস্তি দূর করতে সাহায্য করে।',
+      summaryEn: 'Relieves uncomfortable gas, abdominal bloating, and pressure in the stomach.',
+      precautionBn: 'খাবারের পরে বা চিকিৎসকের পরামর্শ মতো সেবন করুন।',
+      precautionEn: 'Take after meals or at bedtime as needed.',
     ),
 
     // --- Antibiotics & Antibacterials ---
@@ -800,6 +927,43 @@ class BnTranslations {
       categoryEn: 'Antioxidant & Skin Care',
       summaryBn: 'এই ভিটামিন কোষের সুরক্ষা দেয় এবং ত্বক ও চুলের স্বাস্থ্য ভালো রাখে।',
       summaryEn: 'Lipid antioxidant that protects cells and supports skin and heart health.',
+    ),
+
+    'omega-3 acid ethyl esters [salmon fish oil]': MedicineProfile(
+      bnName: 'ওমেগা-৩ (মাছের তেল)',
+      categoryBn: 'হার্ট ও স্বাস্থ্য সাপ্লিমেন্ট',
+      categoryEn: 'Heart & Health Supplement',
+      summaryBn: 'এই ওমেগা-৩ রক্তের ক্ষতিকর চর্বি কমাতে এবং হার্ট ও শরীর সুস্থ রাখতে সাহায্য করে।',
+      summaryEn: 'Dietary supplement to reduce blood triglycerides and support heart and cellular health.',
+      precautionBn: 'খাবারের সাথে বা ভরা পেটে সেবন করুন।',
+      precautionEn: 'Take with or immediately after meals.',
+    ),
+    'omega-3 acid ethyl esters': MedicineProfile(
+      bnName: 'ওমেগা-৩ ফ্যাটি অ্যাসিড',
+      categoryBn: 'হার্ট ও স্বাস্থ্য সাপ্লিমেন্ট',
+      categoryEn: 'Heart & Health Supplement',
+      summaryBn: 'এই ওমেগা-৩ রক্তের ক্ষতিকর চর্বি কমাতে এবং হার্ট ও শরীর সুস্থ রাখতে সাহায্য করে।',
+      summaryEn: 'Dietary supplement to reduce blood triglycerides and support heart and cellular health.',
+      precautionBn: 'খাবারের সাথে বা ভরা পেটে সেবন করুন।',
+      precautionEn: 'Take with or immediately after meals.',
+    ),
+    'salmon fish oil': MedicineProfile(
+      bnName: 'স্যামন মাছের তেল (ওমেগা-৩)',
+      categoryBn: 'পুষ্টি ও হার্ট সাপ্লিমেন্ট',
+      categoryEn: 'Nutritional & Heart Supplement',
+      summaryBn: 'এটি স্বাস্থ্যকর ওমেগা-৩ যা রক্তের চর্বি কমায় এবং হৃদযন্ত্র ভালো রাখে।',
+      summaryEn: 'Natural source of omega-3 to support cardiovascular wellness and vitality.',
+      precautionBn: 'খাবারের সাথে সেবন করুন।',
+      precautionEn: 'Take with food.',
+    ),
+    'omega-3': MedicineProfile(
+      bnName: 'ওমেগা-৩',
+      categoryBn: 'হার্ট ও স্বাস্থ্য সাপ্লিমেন্ট',
+      categoryEn: 'Heart & Health Supplement',
+      summaryBn: 'এই ওমেগা-৩ রক্তের ক্ষতিকর চর্বি কমাতে এবং হার্ট ও শরীর সুস্থ রাখতে সাহায্য করে।',
+      summaryEn: 'Dietary supplement to reduce blood triglycerides and support heart health.',
+      precautionBn: 'খাবারের সাথে বা ভরা পেটে সেবন করুন।',
+      precautionEn: 'Take with or immediately after meals.',
     ),
 
     // --- CNS & Sleep ---

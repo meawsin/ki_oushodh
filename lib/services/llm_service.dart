@@ -45,7 +45,7 @@ class LLMService {
 
     final candidates = _extractCandidates(rawOcrText);
 
-    final localResult = _lookupLocal(candidates, language);
+    final localResult = _lookupLocal(candidates, language, rawOcrText: rawOcrText);
     if (localResult != null) return localResult;
 
     try {
@@ -88,7 +88,72 @@ class LLMService {
   }
 
   List<String> _extractCandidates(String rawText) {
-    final lines = rawText.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    // 0. Pre-process raw OCR text for blister packaging realities:
+    // a. Strip trademark and noise symbols (®, ™, ©, •, etc.)
+    String preprocessed = rawText
+        .replaceAll(RegExp(r'[®™©•★*]'), ' ')
+        .replaceAll(RegExp(r'[\u00AE\u2122\u00A9]'), ' ');
+
+    // b. Collapse single spaced uppercase letters (e.g. "S E C L O" -> "SECLO", "N A P A" -> "NAPA")
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'\b([A-Za-z])\s+([A-Za-z])\s+([A-Za-z])(?:\s+([A-Za-z]))?(?:\s+([A-Za-z]))?\b'),
+      (m) => '${m[1]}${m[2]}${m[3]}${m[4] ?? ""}${m[5] ?? ""}',
+    );
+
+    // c. Expand plus symbols into " Plus " (e.g. "Ace+" -> "Ace Plus")
+    preprocessed = preprocessed.replaceAll('+', ' Plus ');
+
+    // d. Replace leading OCR digit errors before letters (foil glare errors, e.g. "0meprazole" -> "Omeprazole", "5eclo" -> "Seclo")
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'\b0([a-zA-Z]{3,})\b'),
+      (m) => 'O${m[1]}',
+    );
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'\b5([a-zA-Z]{3,})\b'),
+      (m) => 'S${m[1]}',
+    );
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'\b1([a-zA-Z]{4,})\b'),
+      (m) => 'I${m[1]}',
+    );
+
+    // e. Replace OCR character substitutions inside/at the end of words (e.g. "Sec1o" -> "Seclo", "Serge1" -> "Sergel", "Secl0" -> "Seclo")
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'([a-zA-Z])1([a-zA-Z])'),
+      (m) => '${m[1]}l${m[2]}',
+    );
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'\b([a-zA-Z]{3,})1\b'),
+      (m) => '${m[1]}l',
+    );
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'([a-zA-Z])0([a-zA-Z])'),
+      (m) => '${m[1]}o${m[2]}',
+    );
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'\b([a-zA-Z]{3,})0\b'),
+      (m) => '${m[1]}o',
+    );
+
+    // f. Separate glued letter-to-digit boundaries for strengths (e.g. "Napa500" -> "Napa 500", "Seclo20" -> "Seclo 20")
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'([a-zA-Z]+)(\d+)'),
+      (m) => '${m[1]} ${m[2]}',
+    );
+
+    // g. Separate glued digit-to-letter boundaries for dosage units (e.g. "500mg" -> "500 mg", "20tab" -> "20 tab")
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'(\d+)\s*(mg|ml|gm|g|mcg|iu|%|tab|cap|tablet|capsule)\b', caseSensitive: false),
+      (m) => '${m[1]} ${m[2]}',
+    );
+
+    // h. Separate hyphens between letters and numbers (e.g. "Seclo-20" -> "Seclo 20", "Monas-10" -> "Monas 10")
+    preprocessed = preprocessed.replaceAllMapped(
+      RegExp(r'([a-zA-Z]+)\-(\d+)'),
+      (m) => '${m[1]} ${m[2]}',
+    );
+
+    final lines = preprocessed.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
 
     final dosagePattern = RegExp(
       r'\b\d+(\.\d+)?\s*(mg|ml|gm|g|mcg|iu|%|v/v|w/v|w/w)\b',
@@ -97,7 +162,7 @@ class LLMService {
     final standaloneNumberPattern = RegExp(r'\b\d+\b');
 
     final noiseWords = {
-      'usp', 'bp', 'ip', 'mg', 'ml', 'gm', 'mcg', 'iu', 'mfg', 'lic',
+      'usp', 'bp', 'ip', 'mg', 'ml', 'gm', 'g', 'mcg', 'iu', 'mfg', 'lic',
       'no', 'batch', 'exp', 'date', 'mrp', 'tk', 'bdt', 'double', 'strength',
       'gel', 'dried', 'hydroxide', 'and', 'the', 'for', 'with',
       'tablet', 'tablets', 'capsule', 'capsules', 'syrup', 'suspension',
@@ -106,6 +171,10 @@ class LLMService {
       'incepta', 'renata', 'aristopharma', 'acme', 'popular', 'skf', 'sk+f',
       'radiant', 'ibn', 'sina', 'orion', 'ziska', 'beacon', 'delta', 'silva',
       'tab', 'cap', 'syr', 'inj', 'oral', 'drop', 'drops', 'ointment', 'cream',
+      'chewable', 'solution', 'elixir', 'emulsion', 'lotion', 'effervescent',
+      'pediatric', 'adult', 'daily', 'release', 'delayed', 'extended',
+      'acid', 'ethyl', 'esters', 'ester', 'salmon', 'fish', 'oil', 'fatty',
+      'plus', 'extra', 'forte', 'ds', 'max', 'xr', 'sr', 'cr', 'mr',
     };
 
     final candidates = <String>[];
@@ -116,12 +185,12 @@ class LLMService {
       final cleanedLine = line
           .replaceAll(dosagePattern, ' ')
           .replaceAll(standaloneNumberPattern, ' ')
-          .replaceAll(RegExp(r"""['"`*!|#@$%^&+=;:"<>~?/\\]+"""), ' ')
+          .replaceAll(RegExp(r"""['"`*!|#@$%^&=;:"<>~?/\\]+"""), ' ')
           .trim();
 
       final words = cleanedLine
           .split(RegExp(r'[\s,]+'))
-          .map((w) => w.trim())
+          .map((w) => w.replaceAll(RegExp(r'^[\-_]+|[\-_]+$'), '').trim())
           .where((w) => w.length >= 2 && RegExp(r'^[a-zA-Z]').hasMatch(w))
           .toList();
 
@@ -130,14 +199,15 @@ class LLMService {
       }
     }
 
-    // 1. Multi-word phrases directly matching brand index (e.g. "Napa Extra", "Ace Plus")
+    // 1. Multi-word phrases directly matching brand index (e.g. "Napa Extra", "Ace Plus", "Max Omega")
     for (final words in wordsByLine) {
       for (int i = 0; i < words.length; i++) {
         // 2-word phrase
         if (i + 1 < words.length) {
           final phrase2 = '${words[i]} ${words[i + 1]}';
           final lower2 = phrase2.toLowerCase();
-          if (_brandIndex != null && _brandIndex!.containsKey(lower2)) {
+          final noSpace2 = phrase2.replaceAll(RegExp(r'[\s\-_]+'), '').toLowerCase();
+          if (_brandIndex != null && (_brandIndex!.containsKey(lower2) || _brandIndex!.containsKey(noSpace2))) {
             if (!candidates.contains(phrase2)) candidates.add(phrase2);
           }
         }
@@ -145,20 +215,43 @@ class LLMService {
         if (i + 2 < words.length) {
           final phrase3 = '${words[i]} ${words[i + 1]} ${words[i + 2]}';
           final lower3 = phrase3.toLowerCase();
-          if (_brandIndex != null && _brandIndex!.containsKey(lower3)) {
+          final noSpace3 = phrase3.replaceAll(RegExp(r'[\s\-_]+'), '').toLowerCase();
+          if (_brandIndex != null && (_brandIndex!.containsKey(lower3) || _brandIndex!.containsKey(noSpace3))) {
             if (!candidates.contains(phrase3)) candidates.add(phrase3);
           }
         }
       }
     }
 
-    // 2. Exact single-word matches in brand index or medicine db
+    // 1b. Multi-word phrases across consecutive lines (e.g. Line 1 "Napa", Line 2 "Extend")
+    for (int l = 0; l < wordsByLine.length - 1; l++) {
+      if (wordsByLine[l].isNotEmpty && wordsByLine[l + 1].isNotEmpty) {
+        final crossPhrase = '${wordsByLine[l].last} ${wordsByLine[l + 1].first}';
+        final crossLower = crossPhrase.toLowerCase();
+        final crossNoSpace = crossPhrase.replaceAll(RegExp(r'[\s\-_]+'), '').toLowerCase();
+        if (_brandIndex != null && (_brandIndex!.containsKey(crossLower) || _brandIndex!.containsKey(crossNoSpace))) {
+          if (!candidates.contains(crossPhrase)) candidates.add(crossPhrase);
+        }
+      }
+    }
+
+    // 2. Exact single-word matches in brand index (prioritize brands over generics)
     for (final words in wordsByLine) {
       for (final word in words) {
         final lower = word.toLowerCase();
         if (noiseWords.contains(lower)) continue;
-        if ((_brandIndex != null && _brandIndex!.containsKey(lower)) ||
-            (_medicineDb != null && _medicineDb!.containsKey(lower))) {
+        if (_brandIndex != null && _brandIndex!.containsKey(lower)) {
+          if (!candidates.contains(word)) candidates.add(word);
+        }
+      }
+    }
+
+    // 2b. Exact single-word matches in medicine db (generics)
+    for (final words in wordsByLine) {
+      for (final word in words) {
+        final lower = word.toLowerCase();
+        if (noiseWords.contains(lower)) continue;
+        if (_medicineDb != null && _medicineDb!.containsKey(lower)) {
           if (!candidates.contains(word)) candidates.add(word);
         }
       }
@@ -171,6 +264,13 @@ class LLMService {
           final phrase2 = '${words[i]} ${words[i + 1]}';
           if (!candidates.contains(phrase2)) candidates.add(phrase2);
         }
+      }
+    }
+    // Also cross-line 2-word phrases for fuzzy / tier lookup
+    for (int l = 0; l < wordsByLine.length - 1; l++) {
+      if (wordsByLine[l].isNotEmpty && wordsByLine[l + 1].isNotEmpty) {
+        final crossPhrase = '${wordsByLine[l].last} ${wordsByLine[l + 1].first}';
+        if (!candidates.contains(crossPhrase)) candidates.add(crossPhrase);
       }
     }
 
@@ -195,21 +295,22 @@ class LLMService {
       }
     }
 
-    return candidates.take(8).toList();
+    return candidates.take(15).toList();
   }
-
-  ScanResult? _lookupLocal(List<String> candidates, String language) {
+  ScanResult? _lookupLocal(List<String> candidates, String language, {String rawOcrText = ''}) {
     if (_brandIndex == null || _medicineDb == null) return null;
 
-    // Tier 1: Exact match in brand index
+    // Tier 1: Exact or space-normalized match in brand index
     for (final candidate in candidates) {
       final key = candidate.toLowerCase().trim();
-      final generic = _brandIndex![key];
+      final noSpaceKey = key.replaceAll(RegExp(r'[\s\-_]+'), '');
+      final generic = _brandIndex![key] ?? _brandIndex![noSpaceKey];
       if (generic != null) {
         return _buildResult(
           brandName: candidate,
           genericName: generic,
           language: language,
+          rawOcrText: rawOcrText,
         );
       }
     }
@@ -222,16 +323,22 @@ class LLMService {
           brandName: _toTitleCase(key),
           genericName: _toTitleCase(key),
           language: language,
+          rawOcrText: rawOcrText,
         );
       }
-      // Check prefix for generic names (e.g. "Azithromycin" -> "Azithromycin Dihydrate")
+      // Check prefix or bracketed generic names (e.g. "Azithromycin" -> "Azithromycin Dihydrate", "Omega-3" -> "Omega-3 Acid Ethyl Esters [Salmon Fish Oil]")
       if (key.length >= 5) {
         for (final genKey in _medicineDb!.keys) {
-          if (genKey.startsWith('$key ') || genKey == key) {
+          if (genKey.startsWith('$key ') ||
+              genKey == key ||
+              genKey.contains('[$key]') ||
+              (key.contains('salmon') && genKey.contains('salmon fish oil')) ||
+              (key.contains('omega') && genKey.contains('omega-3'))) {
             return _buildResult(
               brandName: _toTitleCase(candidate),
               genericName: _toTitleCase(genKey),
               language: language,
+              rawOcrText: rawOcrText,
             );
           }
         }
@@ -249,6 +356,7 @@ class LLMService {
             brandName: entry.key,
             genericName: entry.value,
             language: language,
+            rawOcrText: rawOcrText,
           );
         }
       }
@@ -259,12 +367,20 @@ class LLMService {
             brandName: _toTitleCase(candidate),
             genericName: _toTitleCase(genKey),
             language: language,
+            rawOcrText: rawOcrText,
           );
         }
       }
     }
 
     // Tier 4: Multi-word boundary / prefix match
+    const blockedSuffixes = {
+      'acid', 'plus', 'extra', 'forte', 'ds', 'xr', 'sr', 'cr', 'd', 'dx',
+      'max', 'gold', 'silver', 'drop', 'drops', 'oil', 'gel', 'cream',
+      'suspension', 'tablet', 'capsule', 'syrup', 'esters', 'ester', 'fatty',
+      'ethyl', 'salmon', 'sodium', 'potassium', 'chloride', 'hydrate',
+    };
+
     for (final candidate in candidates) {
       final key = candidate.toLowerCase().trim();
       if (key.length < 4) continue;
@@ -275,7 +391,9 @@ class LLMService {
 
       for (final entry in _brandIndex!.entries) {
         final brand = entry.key;
-        if (brand.startsWith('$key ') || brand.endsWith(' $key')) {
+        final bool canMatchSuffix = !blockedSuffixes.contains(key);
+        final bool isMatch = brand.startsWith('$key ') || (canMatchSuffix && brand.endsWith(' $key'));
+        if (isMatch) {
           final diff = (brand.length - key.length).abs();
           if (diff < minLenDiff) {
             minLenDiff = diff;
@@ -290,6 +408,7 @@ class LLMService {
           brandName: bestBrand,
           genericName: bestGeneric!,
           language: language,
+          rawOcrText: rawOcrText,
         );
       }
     }
@@ -306,6 +425,7 @@ class LLMService {
 
       final maxAllowedDist = key.length <= 6 ? 1 : 2;
 
+      // 5a. Check brand index
       for (final entry in _brandIndex!.entries) {
         final brand = entry.key;
         if ((brand.length - key.length).abs() > maxAllowedDist) continue;
@@ -314,7 +434,9 @@ class LLMService {
         final firstMatch = brand[0] == key[0] ||
             (brand[0] == 's' && key[0] == '5') ||
             (brand[0] == 'o' && key[0] == '0') ||
-            (brand[0] == 'i' && key[0] == 'l');
+            (brand[0] == 'i' && (key[0] == 'l' || key[0] == '1')) ||
+            (brand[0] == 'l' && (key[0] == 'i' || key[0] == '1')) ||
+            (brand[0] == 'b' && key[0] == '8');
         if (!firstMatch) continue;
 
         final dist = _levenshtein(key, brand);
@@ -324,6 +446,27 @@ class LLMService {
           bestFuzzyGeneric = entry.value;
         }
       }
+
+      // 5b. Check generic database (covers blister strips showing only generic with foil typos)
+      for (final genKey in _medicineDb!.keys) {
+        final firstWord = genKey.split(' ').first;
+        if ((firstWord.length - key.length).abs() > maxAllowedDist) continue;
+
+        final firstMatch = firstWord[0] == key[0] ||
+            (firstWord[0] == 's' && key[0] == '5') ||
+            (firstWord[0] == 'o' && key[0] == '0') ||
+            (firstWord[0] == 'i' && (key[0] == 'l' || key[0] == '1')) ||
+            (firstWord[0] == 'l' && (key[0] == 'i' || key[0] == '1')) ||
+            (firstWord[0] == 'b' && key[0] == '8');
+        if (!firstMatch) continue;
+
+        final dist = _levenshtein(key, firstWord);
+        if (dist <= maxAllowedDist && dist < lowestDistance) {
+          lowestDistance = dist;
+          bestFuzzyBrand = _toTitleCase(genKey);
+          bestFuzzyGeneric = _toTitleCase(genKey);
+        }
+      }
     }
 
     if (bestFuzzyBrand != null && bestFuzzyGeneric != null) {
@@ -331,6 +474,7 @@ class LLMService {
         brandName: bestFuzzyBrand,
         genericName: bestFuzzyGeneric,
         language: language,
+        rawOcrText: rawOcrText,
       );
     }
 
@@ -341,24 +485,57 @@ class LLMService {
     required String brandName,
     required String genericName,
     required String language,
+    String rawOcrText = '',
   }) {
-    final genericBn = BnTranslations.getGenericNameBn(genericName);
-    final category = BnTranslations.getCategory(genericName, language: language);
+    String resolvedBrand = _toTitleCase(brandName);
+    String resolvedGeneric = genericName;
+    final ocrLower = rawOcrText.toLowerCase();
 
-    final rawDesc = _medicineDb?[genericName.toLowerCase()] ?? '';
+    // 1. Antacid combination & Entacyd Plus detection:
+    final hasAntacidTerms = ocrLower.contains('antacid') ||
+        ocrLower.contains('aluminium') ||
+        ocrLower.contains('magnesium') ||
+        ocrLower.contains('entacyd');
+    final hasSimethicone = ocrLower.contains('simethicone') ||
+        genericName.toLowerCase().contains('simethicone');
 
-    final summaryBn = BnTranslations.translateSummary(rawDesc, genericName);
-    final summaryEn = BnTranslations.getEnglishSummary(rawDesc, genericName);
+    if (hasAntacidTerms && hasSimethicone) {
+      resolvedGeneric = 'Aluminium Hydroxide + Magnesium Hydroxide + Simethicone';
+      if (ocrLower.contains('entacyd') || resolvedBrand.toLowerCase().contains('entacyd')) {
+        resolvedBrand = 'Entacyd Plus';
+      } else if (resolvedBrand.toLowerCase() == 'simethicone') {
+        resolvedBrand = 'Antacid Plus';
+      }
+    }
+
+    // 2. Napa Extend / Ace Extend dosage-aware detection:
+    if (resolvedBrand.toLowerCase() == 'napa' && (ocrLower.contains('665') || ocrLower.contains('extend'))) {
+      resolvedBrand = 'Napa Extend';
+    } else if (resolvedBrand.toLowerCase() == 'ace' && (ocrLower.contains('665') || ocrLower.contains('extend'))) {
+      resolvedBrand = 'Ace Extend';
+    }
+
+    // 3. MaxOmega title case normalization:
+    if (resolvedBrand.toLowerCase() == 'max omega' || resolvedBrand.toLowerCase() == 'maxomega') {
+      resolvedBrand = 'MaxOmega';
+    }
+
+    final genericBn = BnTranslations.getGenericNameBn(resolvedGeneric);
+    final category = BnTranslations.getCategory(resolvedGeneric, language: language);
+
+    final rawDesc = _medicineDb?[resolvedGeneric.toLowerCase()] ?? '';
+
+    final summaryBn = BnTranslations.translateSummary(rawDesc, resolvedGeneric);
+    final summaryEn = BnTranslations.getEnglishSummary(rawDesc, resolvedGeneric);
 
     final summary = language == 'bn' ? summaryBn : summaryEn;
-    final displayBrand = _toTitleCase(brandName);
-    final precaution = BnTranslations.getPrecaution(genericName, language: language);
-    final precautionEn = BnTranslations.getPrecaution(genericName, language: 'en');
+    final precaution = BnTranslations.getPrecaution(resolvedGeneric, language: language);
+    final precautionEn = BnTranslations.getPrecaution(resolvedGeneric, language: 'en');
 
     return ScanResult(
-      medicineName: displayBrand,
-      brandName: displayBrand,
-      genericName: genericName,
+      medicineName: resolvedBrand,
+      brandName: resolvedBrand,
+      genericName: resolvedGeneric,
       genericNameBn: genericBn,
       category: category,
       summary: summary,

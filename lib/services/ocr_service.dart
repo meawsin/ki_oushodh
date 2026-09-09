@@ -12,7 +12,7 @@ class OCRService {
   // ---------------------------------------------------------------------------
   static const _medicineSignals = {
     // Dosage units
-    'mg', 'mcg', 'ml', 'iu', 'usp', 'bp', 'ip',
+    'mg', 'mcg', 'ml', 'iu', 'usp', 'bp', 'ip', 'gm',
     // Packaging words
     'tablet', 'tablets', 'tab', 'capsule', 'capsules', 'cap',
     'syrup', 'injection', 'cream', 'ointment', 'drops', 'strip',
@@ -21,14 +21,29 @@ class OCRService {
     'mfg', 'manufacturing', 'batch', 'exp', 'expiry', 'manufactured',
     'pharma', 'pharmaceuticals', 'laboratories', 'lab', 'ltd',
     'license', 'lic', 'reg', 'registration',
-    // Common generic drug suffixes that appear on packaging
+    // Common generic drug words
     'hydroxide', 'hydrochloride', 'sulfate', 'acetate', 'sodium',
     'potassium', 'oxide', 'acid', 'citrate', 'gluconate',
-    // Common Bangladeshi pharma brands / words that appear on strips
+    // Common top generics
+    'paracetamol', 'omeprazole', 'esomeprazole', 'pantoprazole',
+    'cefixime', 'azithromycin', 'montelukast', 'ciprofloxacin',
+    'amoxicillin', 'metformin', 'losartan', 'amlodipine', 'atorvastatin',
+    'ibuprofen', 'naproxen', 'cetirizine', 'fexofenadine', 'antacid',
+    // Common Bangladeshi pharma brands & companies
     'square', 'acme', 'beximco', 'incepta', 'eskayef', 'opsonin',
     'renata', 'aristopharma', 'healthcare', 'strength', 'dose',
-    'double', 'forte', 'plus', 'extra',
+    'double', 'forte', 'plus', 'extra', 'popular', 'skf', 'radiant',
+    'napa', 'seclo', 'sergel', 'ace', 'monas', 'maxpro', 'pantonix',
   };
+
+  static const _pharmaSuffixes = {
+    'cillin', 'prazole', 'statin', 'sartan', 'floxacin', 'mycin',
+    'tidine', 'dipine', 'lukast', 'fenac', 'profen', 'olol', 'pril', 'artan',
+  };
+
+  static final _dosageNumberPattern = RegExp(
+    r'\b(0\.5|1|2|2\.5|4|5|10|15|20|25|30|40|50|75|100|120|125|150|180|200|250|300|400|500|600|650|750|800|1000)\b',
+  );
 
   // Minimum number of medicine signals required to pass validation
   static const _minSignals = 1;
@@ -67,15 +82,38 @@ class OCRService {
     }
 
     final textLower = rawText.toLowerCase();
-    final words = textLower.split(RegExp(r'[\s\n,./\\()\[\]:;]+'));
+    final words = textLower
+        .split(RegExp(r'[\s\n,./\\()\[\]:;]+'))
+        .where((w) => w.isNotEmpty)
+        .toSet();
 
     // Count how many medicine signals appear in the text
     int signalCount = 0;
     for (final signal in _medicineSignals) {
-      if (words.contains(signal) || textLower.contains(signal)) {
+      if (words.contains(signal)) {
         signalCount++;
-        if (signalCount >= _minSignals) break;
+        break;
       }
+    }
+
+    // Check pharma suffixes on words (e.g. "omeprazole" ends with "prazole")
+    if (signalCount == 0) {
+      for (final word in words) {
+        if (word.length >= 6) {
+          for (final suffix in _pharmaSuffixes) {
+            if (word.endsWith(suffix)) {
+              signalCount++;
+              break;
+            }
+          }
+          if (signalCount > 0) break;
+        }
+      }
+    }
+
+    // Dosage strength numbers on cut blister strips (e.g. "500", "20", "10")
+    if (signalCount == 0 && _dosageNumberPattern.hasMatch(textLower)) {
+      signalCount++;
     }
 
     if (signalCount < _minSignals) {

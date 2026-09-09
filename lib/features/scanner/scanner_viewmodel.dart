@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 // lib/features/scanner/scanner_viewmodel.dart
 //
 // Key fixes vs original:
@@ -132,16 +133,14 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
 
       final rawText = await _ocr.extractText(imagePath);
 
-      final validationError = _ocr.validateAsMedicine(rawText, language);
-      if (validationError != null) {
-        state = ScanStateError(validationError);
-        SemanticsService.announce(validationError, TextDirection.ltr);
-        await _tts.speak(
-          validationError,
-          language: language,
-          englishFallback:
-              'This does not look like medicine packaging. Please scan a medicine strip only.',
-        );
+      // Guard: empty text check
+      if (rawText.trim().isEmpty) {
+        final emptyMsg = language == 'bn'
+            ? 'কোনো লেখা পাওয়া যায়নি। ওষুধের স্ট্রিপে আরও কাছে ধরুন।'
+            : 'No text found. Hold the camera closer to the medicine strip.';
+        state = ScanStateError(emptyMsg);
+        SemanticsService.announce(emptyMsg, TextDirection.ltr);
+        await _tts.speak(emptyMsg, language: language, englishFallback: emptyMsg);
         return;
       }
 
@@ -150,10 +149,28 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
       state = ScanStateProcessing(ProcessingStep.identifying, identifyingMsg);
       SemanticsService.announce(identifyingMsg, TextDirection.ltr);
 
-      final result = await _llm.identifyMedicine(
-        rawOcrText: rawText,
-        language: language,
-      );
+      ScanResult result;
+      try {
+        result = await _llm.identifyMedicine(
+          rawOcrText: rawText,
+          language: language,
+        );
+      } on LLMServiceException {
+        // If not matched in database, check whether packaging has any pharma signals
+        final validationError = _ocr.validateAsMedicine(rawText, language);
+        if (validationError != null) {
+          state = ScanStateError(validationError);
+          SemanticsService.announce(validationError, TextDirection.ltr);
+          await _tts.speak(
+            validationError,
+            language: language,
+            englishFallback:
+                'This does not look like medicine packaging. Please scan a medicine strip only.',
+          );
+          return;
+        }
+        rethrow;
+      }
 
       state = ScanStateResult(result);
       final identifiedMsg = language == 'bn'

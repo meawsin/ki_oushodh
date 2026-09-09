@@ -1,5 +1,6 @@
 // lib/services/camera_service.dart
 
+import 'dart:ui';
 import 'package:camera/camera.dart';
 
 // ---------------------------------------------------------------------------
@@ -48,14 +49,18 @@ class CameraService {
 
       _controller = CameraController(
         rearCamera,
-        // medium = 720p on most devices. Enough for ML Kit text recognition.
-        // high (1080p) or veryHigh would use 2-4x more memory for no OCR benefit.
-        ResolutionPreset.medium,
+        // high = 1080p. Essential for resolving fine 6-8pt print on small blister packets
+        ResolutionPreset.high,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
 
       await _controller!.initialize();
+
+      // Ensure auto-focus is active for close-up macro scanning of blister packs
+      try {
+        await _controller!.setFocusMode(FocusMode.auto);
+      } catch (_) {}
 
       // Disable flash by default — elderly users should not be startled
       await _controller!.setFlashMode(FlashMode.off);
