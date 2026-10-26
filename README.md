@@ -47,7 +47,7 @@ Ki Oushodh addresses this health equity gap through **Zero-Click Auditory Litera
   <img src="screenshots/03_search_results.png" width="31%" alt="Instant Offline Search Results for Napa" />
 </p>
 <p align="center">
-  <em>Figure 1: (Left) Optical Camera Scanner with 1080p preview, Gallery & Search shortcuts; (Center) Offline Manual Search with quick chips; (Right) Instant sub-millisecond candidate results.</em>
+  <em>Figure 1: (Left) Home Screen: Camera Scanne, Gallery & Search shortcuts; (Center) Offline Manual Search with quick chips; (Right) Instant sub-millisecond candidate results.</em>
 </p>
 
 <p align="center">
@@ -58,7 +58,7 @@ Ki Oushodh addresses this health equity gap through **Zero-Click Auditory Litera
   <img src="screenshots/06_database_info_sheet.png" width="31%" alt="DGDA Verified Offline Database Sheet" />
 </p>
 <p align="center">
-  <em>Figure 2: (Left) Identified Medicine Result with Bengali phonetic TTS, safety precautions, and Medical AI Disclaimer banner; (Center) Accessibility Settings with calibrated Voice Speed slider; (Right) Offline DGDA Database compendium sheet.</em>
+  <em>Figure 2: (Left) Identified Medicine Result with TTS, safety precautions, and Medical AI Disclaimer banner; (Center) Accessibility Settings with Voice Speed slider; (Right) Offline DGDA Database compendium sheet.</em>
 </p>
 
 <p align="center">
@@ -78,11 +78,11 @@ Ki Oushodh addresses this health equity gap through **Zero-Click Auditory Litera
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                               KI OUSHODH PROCESSING PIPELINE                                      │
+│                               KI OUSHODH PROCESSING PIPELINE                                     │
 │                                                                                                  │
-│   [ Camera Feed / Gallery Image ]                                                                 │
-│                 │                                                                                │
-│                 ▼                                                                                │
+│                               [ Camera Feed / Gallery Image ]                                    │
+│                                                 │                                                │
+│                                                 ▼                                                │
 │   ┌──────────────────────────────────────────────────────────────────────────────────────────┐   │
 │   │  STAGE 1: EDGE ARTIFICIAL INTELLIGENCE (Quantized Deep Learning Computer Vision)         │   │
 │   │  • Model: Google ML Kit Latin Text Recognition (TFLite / Android NNAPI Native Runtime)   │   │
@@ -113,9 +113,9 @@ Ki Oushodh addresses this health equity gap through **Zero-Click Auditory Litera
 │                                                 ▼                                                │
 │   ┌──────────────────────────────────────────────────────────────────────────────────────────┐   │
 │   │  STAGE 4: VERNACULAR AUDITORY SYNTHESIS (Zero-Click Human-Computer Interaction)          │   │
-│   │  • Phonetic Transliteration: "Napa Extend" → "নাপা এক্সটেন্ড", "Ace Plus" → "এস প্লাস"   │   │
-│   │  • Low-Literacy Cognitive Compression: Max 2 concise Bengali sentences (no raw mg math) │   │
-│   │  • Native Android TTS: Calibrated pitch (0.94) & adjustable speed (0.30x–0.70x)         │   │
+│   │  • Phonetic Transliteration: "Napa Extend" → "নাপা এক্সটেন্ড", "Ace Plus" → "এস প্লাস"       │   │
+│   │  • Low-Literacy Cognitive Compression: Max 2 concise Bengali sentences (no raw mg math)  │   │
+│   │  • Native Android TTS: Calibrated pitch (0.94) & adjustable speed (0.30x–0.70x)          │   │
 │   └──────────────────────────────────────────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -155,8 +155,6 @@ flowchart TD
 3. **Tier 3 — Space & Hyphen Normalization**: Resolves packaging format differences (`A-Cold` vs `A Cold`, `E-Cap` vs `ECap`).
 4. **Tier 4 — Boundary-Constrained Substring**: Matches multi-word brands while blocking generic suffixes (`acid`, `plus`, `oil`, `gel`) to avoid false-positive collisions.
 5. **Tier 5 — Dynamic Levenshtein Distance**: Uses edit distance thresholds (1 edit for 4–6 characters, $\le 2$ for 7+ characters) to recover from damaged foil OCR typos (`SecIo` $\rightarrow$ `Seclo`).
-
-> For full architectural details, HCI framework analysis, and code citations, see the [Documentation](documentation/README.md).
 
 ---
 ## Repository Structure
