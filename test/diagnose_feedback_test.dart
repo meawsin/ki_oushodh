@@ -1,6 +1,6 @@
 // ignore_for_file: avoid_print
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ki_oushodh/services/llm_service.dart';
+import 'package:ki_oushodh/services/search_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

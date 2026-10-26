@@ -1,4 +1,4 @@
-// lib/services/llm_service.dart
+// lib/services/search_service.dart
 //
 // Medicine identification pipeline:
 //   1. Load local brand index + medicine DB from bundled assets

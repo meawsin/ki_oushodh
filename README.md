@@ -253,7 +253,7 @@ ki_oushodh/
 │   │   └── settings/          # Font scaling, contrast toggle, language preferences
 │   └── services/
 │       ├── camera_service.dart # 1080p CameraX lifecycle and flash/autofocus controls
-│       ├── llm_service.dart    # 5-tier fuzzy search engine, foil glare & blister heuristics
+│       ├── search_service.dart  # 5-tier fuzzy search engine, foil glare & blister heuristics
 │       ├── ocr_service.dart    # Google ML Kit wrapper
 │       ├── storage_service.dart# Hive persistence layer
 │       └── tts_service.dart    # Calibrated low-literacy TTS audio synthesis

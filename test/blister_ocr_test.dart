@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ki_oushodh/services/llm_service.dart';
+import 'package:ki_oushodh/services/search_service.dart';
 import 'package:ki_oushodh/services/ocr_service.dart';
 
 void main() {

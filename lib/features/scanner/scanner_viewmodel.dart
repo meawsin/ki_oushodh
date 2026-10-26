@@ -14,7 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/scan_result.dart';
 import '../../main.dart';
 import '../../services/camera_service.dart';
-import '../../services/llm_service.dart';
+import '../../services/search_service.dart';
 import '../../services/ocr_service.dart';
 import '../../services/tts_service.dart';
 
