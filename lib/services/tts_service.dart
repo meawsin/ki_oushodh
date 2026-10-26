@@ -4,14 +4,8 @@
 //   - Bangla TTS if device supports it (bn-BD)
 //   - English fallback on devices without Bangla voice
 //   - Warm, natural speech rate (not robotic)
+//   - User-configurable speech rate from settings
 //   - Proper sentence punctuation for natural pauses
-//
-// Key fixes vs original:
-//   - Speech rate tuned to 0.48 (was 0.42 — too slow, robotic)
-//   - Pitch 1.05 for slightly warmer/more natural tone
-//   - Added _sanitizeForTts() to clean up medical jargon/symbols before speaking
-//   - Queue mode so rapid calls don't cut each other off awkwardly
-//   - isSpeaking getter exposed so UI can show live state
 
 import 'package:flutter_tts/flutter_tts.dart';
 
@@ -20,16 +14,29 @@ class TTSService {
   bool _isBanglaAvailable = false;
   bool _isInitialized = false;
   bool _isSpeaking = false;
+  double _speechRate = 0.43;
 
   bool get isBanglaAvailable => _isBanglaAvailable;
   bool get isSpeaking => _isSpeaking;
+  double get speechRate => _speechRate;
 
-  Future<void> initialize() async {
-    if (_isInitialized) return;
+  void setSpeechRate(double rate) {
+    _speechRate = rate;
+    _tts.setSpeechRate(rate);
+  }
+
+  Future<void> initialize({double? speechRate}) async {
+    if (_isInitialized) {
+      if (speechRate != null) {
+        setSpeechRate(speechRate);
+      }
+      return;
+    }
     _isBanglaAvailable = await _checkBanglaAvailability();
 
+    _speechRate = speechRate ?? 0.43;
     await _tts.setVolume(1.0);
-    await _tts.setSpeechRate(0.43);   // Calmer, gentle cadence for low-literacy users
+    await _tts.setSpeechRate(_speechRate);   // Calmer, gentle cadence for low-literacy users
     await _tts.setPitch(0.94);         // Warm, soothing, slightly deeper tone (removes sharp/harsh tone)
 
     _tts.setStartHandler(() => _isSpeaking = true);
@@ -50,9 +57,12 @@ class TTSService {
     String text, {
     required String language,
     String? englishFallback,
+    double? customRate,
   }) async {
     if (!_isInitialized) await initialize();
     await stop();
+
+    await _tts.setSpeechRate(customRate ?? _speechRate);
 
     if (language == 'bn' && _isBanglaAvailable) {
       await _tts.setLanguage('bn-BD');

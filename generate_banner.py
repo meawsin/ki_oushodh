@@ -370,7 +370,9 @@ def generate_portfolio_banner():
     
     # ── 6. RIGHT HALF: TWO OVERLAPPING SMARTPHONES ────────────────────────
     # Secondary Phone (Background - Camera Scanner View)
-    scan_screenshot = 'screenshots/ki_oushodh(Scanning).png'
+    scan_screenshot = 'screenshots/01_camera_scanner.png'
+    if not os.path.exists(scan_screenshot):
+        scan_screenshot = 'screenshots/ki_oushodh(Scanning).png'
     phone_sec, shadow_sec, pad_sec = create_phone_mockup(scan_screenshot, target_screen_h=790, bezel=9, corner_radius=42)
     sec_x, sec_y = 1115, 120
     
@@ -387,7 +389,9 @@ def generate_portfolio_banner():
     banner.paste(phone_sec, (sec_x, sec_y), phone_sec)
     
     # Primary Phone (Foreground - Identification Result & Vernacular TTS)
-    res_screenshot = 'screenshots/ki_oushodh(Result).png'
+    res_screenshot = 'screenshots/04_medicine_details.png'
+    if not os.path.exists(res_screenshot):
+        res_screenshot = 'screenshots/ki_oushodh(Result).png'
     phone_pri, shadow_pri, pad_pri = create_phone_mockup(res_screenshot, target_screen_h=835, bezel=9, corner_radius=42)
     pri_x, pri_y = 1405, 110
     

@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/camera_service.dart';
 import '../history/history_screen.dart';
 import '../results/results_screen.dart';
+import '../search/manual_search_screen.dart';
 import '../settings/settings_screen.dart';
 import 'scanner_viewmodel.dart';
 
@@ -101,21 +102,71 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     }
   }
 
-  void _navigateToResults(ScanStateResult resultState) {
+  Future<void> _navigateToResults(ScanStateResult resultState) async {
     if (_navigating) return;
     _navigating = true;
     HapticFeedback.mediumImpact();
-    Navigator.of(context)
-        .push(PageRouteBuilder(
-          pageBuilder: (_, a, __) => ResultsScreen(result: resultState.result),
-          transitionsBuilder: (_, anim, __, child) => SlideTransition(
-            position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-                .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
-            child: child,
-          ),
-          transitionDuration: const Duration(milliseconds: 380),
-        ))
-        .then((_) => _navigating = false);
+    // Low tier optimization: pause camera pipeline to save CPU/battery
+    await ref.read(cameraServiceProvider).pause();
+    if (!mounted) return;
+    await Navigator.of(context).push(PageRouteBuilder(
+      pageBuilder: (_, a, __) => ResultsScreen(result: resultState.result),
+      transitionsBuilder: (_, anim, __, child) => SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+        child: child,
+      ),
+      transitionDuration: const Duration(milliseconds: 350),
+    ));
+    _navigating = false;
+    if (mounted) {
+      await ref.read(cameraServiceProvider).resume();
+    }
+  }
+
+  Future<void> _navigateToHistory() async {
+    HapticFeedback.selectionClick();
+    await ref.read(cameraServiceProvider).pause();
+    if (!mounted) return;
+    await Navigator.of(context).push(PageRouteBuilder(
+      pageBuilder: (_, a, __) => const HistoryScreen(),
+      transitionsBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
+      transitionDuration: const Duration(milliseconds: 220),
+    ));
+    if (mounted) {
+      await ref.read(cameraServiceProvider).resume();
+    }
+  }
+
+  Future<void> _navigateToSearch() async {
+    HapticFeedback.selectionClick();
+    await ref.read(cameraServiceProvider).pause();
+    if (!mounted) return;
+    await Navigator.of(context).push(PageRouteBuilder(
+      pageBuilder: (_, a, __) => const ManualSearchScreen(),
+      transitionsBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
+      transitionDuration: const Duration(milliseconds: 220),
+    ));
+    if (mounted) {
+      await ref.read(cameraServiceProvider).resume();
+    }
+  }
+
+  Future<void> _navigateToSettings() async {
+    HapticFeedback.selectionClick();
+    await ref.read(cameraServiceProvider).pause();
+    if (!mounted) return;
+    await Navigator.of(context).push(PageRouteBuilder(
+      pageBuilder: (_, a, __) => const SettingsScreen(),
+      transitionsBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
+      transitionDuration: const Duration(milliseconds: 220),
+    ));
+    if (mounted) {
+      await ref.read(cameraServiceProvider).resume();
+    }
   }
 
   @override
@@ -309,74 +360,128 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
 
             const Spacer(),
 
-            // ── Scan button ───────────────────────────────────────────────
+            // ── Scan + Gallery button row ─────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Semantics(
-                button: true,
-                label: language == 'bn'
-                    ? (isProcessing ? 'ওষুধ স্ক্যান করা হচ্ছে' : 'ওষুধ স্ক্যান করার বোতাম')
-                    : (isProcessing ? 'Scanning medicine' : 'Scan medicine button'),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: isProcessing
-                        ? null
-                        : () {
-                            HapticFeedback.heavyImpact();
-                            ref.read(scannerViewModelProvider.notifier).onCaptureTapped();
-                          },
-                    borderRadius: BorderRadius.circular(18),
-                    splashColor: cs.onPrimary.withValues(alpha: 0.2),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: isProcessing ? cs.primary.withValues(alpha: 0.35) : cs.primary,
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: isProcessing
-                            ? []
-                            : [
-                                BoxShadow(
-                                  color: cs.primary.withValues(alpha: 0.28),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                      ),
-                      child: Center(
-                        child: scanState is ScanStateProcessing
-                            ? _ProcessingButtonContent(
-                                cs: cs,
-                                step: scanState.step,
-                                language: language,
-                              )
-                            : Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.qr_code_scanner_rounded,
-                                      color: cs.onPrimary, size: 22),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    language == 'bn' ? 'স্ক্যান করুন' : 'Scan Medicine',
-                                    style: TextStyle(
-                                      color: cs.onPrimary,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      label: language == 'bn'
+                          ? (isProcessing ? 'ওষুধ স্ক্যান করা হচ্ছে' : 'ওষুধ স্ক্যান করার বোতাম')
+                          : (isProcessing ? 'Scanning medicine' : 'Scan medicine button'),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: isProcessing
+                              ? null
+                              : () {
+                                  HapticFeedback.heavyImpact();
+                                  ref.read(scannerViewModelProvider.notifier).onCaptureTapped();
+                                },
+                          borderRadius: BorderRadius.circular(18),
+                          splashColor: cs.onPrimary.withValues(alpha: 0.2),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: isProcessing ? cs.primary.withValues(alpha: 0.35) : cs.primary,
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: isProcessing
+                                  ? []
+                                  : [
+                                      BoxShadow(
+                                        color: cs.primary.withValues(alpha: 0.28),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                            ),
+                            child: Center(
+                              child: scanState is ScanStateProcessing
+                                  ? _ProcessingButtonContent(
+                                      cs: cs,
+                                      step: scanState.step,
+                                      language: language,
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.qr_code_scanner_rounded,
+                                            color: cs.onPrimary, size: 22),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          language == 'bn' ? 'স্ক্যান করুন' : 'Scan Medicine',
+                                          style: TextStyle(
+                                            color: cs.onPrimary,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  // Gallery Pick Button
+                  Semantics(
+                    button: true,
+                    label: language == 'bn' ? 'গ্যালারি থেকে ছবি বাছাই করুন' : 'Pick image from gallery',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: isProcessing
+                            ? null
+                            : () {
+                                HapticFeedback.selectionClick();
+                                ref.read(scannerViewModelProvider.notifier).onPickFromGallery();
+                              },
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          width: 60,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: cs.outlineVariant.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.photo_library_rounded,
+                                color: cs.primary,
+                                size: 24,
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                language == 'bn' ? 'গ্যালারি' : 'Gallery',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
             const SizedBox(height: 12),
 
-            // ── History + Settings row ────────────────────────────────────
+            // ── History + Search + Settings row ───────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
@@ -389,15 +494,20 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                         icon: Icons.history_rounded,
                         label: language == 'bn' ? 'ইতিহাস' : 'History',
                         cs: cs,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          Navigator.of(context).push(PageRouteBuilder(
-                            pageBuilder: (_, a, __) => const HistoryScreen(),
-                            transitionsBuilder: (_, anim, __, child) =>
-                                FadeTransition(opacity: anim, child: child),
-                            transitionDuration: const Duration(milliseconds: 250),
-                          ));
-                        },
+                        onTap: _navigateToHistory,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      label: language == 'bn' ? 'ওষুধ অনুসন্ধান করুন' : 'Search medicines',
+                      child: _SecondaryButton(
+                        icon: Icons.search_rounded,
+                        label: language == 'bn' ? 'সার্চ' : 'Search',
+                        cs: cs,
+                        onTap: _navigateToSearch,
                       ),
                     ),
                   ),
@@ -409,15 +519,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                       icon: Icons.tune_rounded,
                       cs: cs,
                       width: 52,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        Navigator.of(context).push(PageRouteBuilder(
-                          pageBuilder: (_, a, __) => const SettingsScreen(),
-                          transitionsBuilder: (_, anim, __, child) =>
-                              FadeTransition(opacity: anim, child: child),
-                          transitionDuration: const Duration(milliseconds: 250),
-                        ));
-                      },
+                      onTap: _navigateToSettings,
                     ),
                   ),
                 ],
@@ -624,46 +726,50 @@ class _StatusOverlay extends ConsumerWidget {
     return Container(
       color: Colors.black.withValues(alpha: 0.78),
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(
-              isError ? Icons.error_outline_rounded : Icons.info_outline_rounded,
-              color: isError
-                  ? cs.error.withValues(alpha: 0.8)
-                  : Colors.white.withValues(alpha: 0.5),
-              size: 36,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 14,
-                height: 1.55,
+        child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isError ? Icons.error_outline_rounded : Icons.info_outline_rounded,
+                color: isError
+                    ? cs.error.withValues(alpha: 0.8)
+                    : Colors.white.withValues(alpha: 0.5),
+                size: 28,
               ),
-            ),
-            const SizedBox(height: 18),
-            GestureDetector(
-              onTap: () => ref.read(scannerViewModelProvider.notifier).reset(),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                decoration: BoxDecoration(
-                  border: Border.all(color: cs.primary, width: 1.5),
-                  borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 13,
+                  height: 1.35,
                 ),
-                child: Text(
-                  language == 'bn' ? 'আবার চেষ্টা করুন' : 'Try Again',
-                  style: TextStyle(
-                    color: cs.primary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+              ),
+              const SizedBox(height: 14),
+              GestureDetector(
+                onTap: () => ref.read(scannerViewModelProvider.notifier).reset(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: cs.primary, width: 1.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    language == 'bn' ? 'আবার চেষ্টা করুন' : 'Try Again',
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ]),
+            ],
+          ),
         ),
       ),
     );

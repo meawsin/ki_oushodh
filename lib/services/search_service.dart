@@ -74,6 +74,62 @@ class LLMService {
     );
   }
 
+  /// Public offline search querying bundled DGDA pharmaceutical database
+  Future<List<ScanResult>> searchOffline(String query, String language) async {
+    final cleanQuery = query.trim().toLowerCase();
+    if (cleanQuery.isEmpty) return const [];
+    await _ensureLoaded();
+
+    final List<ScanResult> results = [];
+    final Set<String> seen = {};
+
+    void addMatch(String brand, String generic) {
+      final key = brand.toLowerCase();
+      if (seen.add(key)) {
+        results.add(_buildResult(
+          brandName: _toTitleCase(brand),
+          genericName: generic,
+          language: language,
+        ));
+      }
+    }
+
+    // 1. Prefix matches on Brand Name (highest relevance)
+    if (_brandIndex != null) {
+      for (final entry in _brandIndex!.entries) {
+        if (entry.key.startsWith(cleanQuery)) {
+          addMatch(entry.key, entry.value);
+          if (results.length >= 40) return results;
+        }
+      }
+      // Substring matches on Brand Name
+      for (final entry in _brandIndex!.entries) {
+        if (entry.key.contains(cleanQuery) && !entry.key.startsWith(cleanQuery)) {
+          addMatch(entry.key, entry.value);
+          if (results.length >= 40) return results;
+        }
+      }
+    }
+
+    // 2. Generic name matches
+    if (_medicineDb != null) {
+      for (final genKey in _medicineDb!.keys) {
+        if (genKey.startsWith(cleanQuery)) {
+          addMatch(genKey, genKey);
+          if (results.length >= 40) return results;
+        }
+      }
+      for (final genKey in _medicineDb!.keys) {
+        if (genKey.contains(cleanQuery) && !genKey.startsWith(cleanQuery)) {
+          addMatch(genKey, genKey);
+          if (results.length >= 40) return results;
+        }
+      }
+    }
+
+    return results;
+  }
+
   Future<void> _ensureLoaded() async {
     if (_brandIndex != null) return;
     try {

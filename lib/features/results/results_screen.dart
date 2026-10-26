@@ -356,6 +356,39 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                                     ),
                                   ],
                                   const SizedBox(height: 16),
+                                  // ── Medical AI Disclaimer Banner ──
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          Icons.gavel_rounded,
+                                          size: 16,
+                                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            language == 'bn'
+                                                ? 'দাবিত্যাগ: এটি এআই চালিত প্রাথমিক তথ্য নির্দেশিকা। কোনো ওষুধ সেবনের আগে অবশ্যই রেজিস্টার্ড চিকিৎসকের পরামর্শ নিন।'
+                                                : 'Disclaimer: This is an AI-powered informational guide. Always consult a registered physician before taking any medication.',
+                                            style: TextStyle(
+                                              color: cs.onSurfaceVariant,
+                                              fontSize: 11,
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
                                 ],
                               ),
                             ),

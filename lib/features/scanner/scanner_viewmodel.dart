@@ -10,6 +10,7 @@
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../domain/models/scan_result.dart';
 import '../../main.dart';
@@ -125,12 +126,47 @@ class ScannerViewModel extends AutoDisposeNotifier<ScanState> {
 
     try {
       final imagePath = await _camera.captureFrame();
+      await _processImage(imagePath);
+    } on CameraServiceException catch (e) {
+      state = ScanStateError(e.message);
+      SemanticsService.announce(e.message, TextDirection.ltr);
+      await _tts.speak(e.message, language: language, englishFallback: e.message);
+    }
+  }
 
-      // Step 2: OCR
-      final readingMsg = language == 'bn' ? 'লেখা পড়া হচ্ছে...' : 'Reading text...';
-      state = ScanStateProcessing(ProcessingStep.reading, readingMsg);
-      SemanticsService.announce(readingMsg, TextDirection.ltr);
+  Future<void> onPickFromGallery() async {
+    if (state is ScanStateProcessing) return;
 
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 92,
+      );
+
+      if (pickedFile == null) return; // User cancelled
+      await _processImage(pickedFile.path);
+    } catch (_) {
+      final lang = ref.read(languageProvider);
+      final msg = lang == 'bn'
+          ? 'গ্যালারি থেকে ছবি নেওয়া যায়নি।'
+          : 'Could not load image from gallery.';
+      state = ScanStateError(msg);
+      await _tts.speak(msg, language: lang, englishFallback: msg);
+    }
+  }
+
+  Future<void> _processImage(String imagePath) async {
+    final language = ref.read(languageProvider);
+
+    // Step 2: OCR
+    final readingMsg = language == 'bn' ? 'লেখা পড়া হচ্ছে...' : 'Reading text...';
+    state = ScanStateProcessing(ProcessingStep.reading, readingMsg);
+    SemanticsService.announce(readingMsg, TextDirection.ltr);
+
+    try {
       final rawText = await _ocr.extractText(imagePath);
 
       // Guard: empty text check
