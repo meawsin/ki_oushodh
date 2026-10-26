@@ -5,8 +5,8 @@
   <img src="assets/images/Ki_oushodh_banner.png" width="100%" alt="Ki Oushodh - Offline Assistive Healthcare System Showcase Banner" />
 </p>
 
-[![Download APK](https://img.shields.io/badge/📲%20Download%20APK-v1.0%20(Release)-3DDC84?logo=android&logoColor=white&style=for-the-badge)](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk)
-[![GitHub Releases](https://img.shields.io/badge/🏷️%20GitHub%20Releases-v1.0-24292e?logo=github&logoColor=white&style=for-the-badge)](https://github.com/meawsin/ki_oushodh/releases)
+[![Download APK](https://img.shields.io/badge/📲%20Download%20APK-v1.1.0%20(Release)-3DDC84?logo=android&logoColor=white&style=for-the-badge)](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.1.0.apk)
+[![GitHub Releases](https://img.shields.io/badge/🏷️%20GitHub%20Releases-v1.1.0-24292e?logo=github&logoColor=white&style=for-the-badge)](https://github.com/meawsin/ki_oushodh/releases)
 
 [![Flutter](https://img.shields.io/badge/Framework-Flutter%203.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Language-Dart%203.x-0175C2?logo=dart&logoColor=white)](https://dart.dev)
@@ -24,22 +24,22 @@
 Test Ki Oushodh on any physical Android phone without needing to compile from source:
 
 <p align="center">
-  <a href="https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk">
-    <img src="https://img.shields.io/badge/⬇️%20Direct%20Download-ki--oushudh--v1.0.apk%20(83.2%20MB)-02569B?style=for-the-badge&logo=android&logoColor=white" height="42" alt="Direct Download APK" />
+  <a href="https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.1.0.apk">
+    <img src="https://img.shields.io/badge/⬇️%20Direct%20Download-ki--oushudh--v1.1.0.apk%20(84.6%20MB)-02569B?style=for-the-badge&logo=android&logoColor=white" height="42" alt="Direct Download APK" />
   </a>
   &nbsp;&nbsp;
   <a href="https://github.com/meawsin/ki_oushodh/releases">
-    <img src="https://img.shields.io/badge/📦%20GitHub%20Releases%20Page-v1.0-24292e?style=for-the-badge&logo=github&logoColor=white" height="42" alt="GitHub Releases Page" />
+    <img src="https://img.shields.io/badge/📦%20GitHub%20Releases%20Page-v1.1.0-24292e?style=for-the-badge&logo=github&logoColor=white" height="42" alt="GitHub Releases Page" />
   </a>
 </p>
 
 | Package | Version | Compatibility | Offline Database | Hardware Target |
 |---|---|---|---|---|
-| [`ki-oushudh-v1.0.apk`](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk) | **v1.0.0** | Android 5.0+ (API 21+) — ARMv7 & ARM64 | 13,929 Brands + 1,640 Generics (DGDA) | Low-Tier to Flagship (e.g. Snapdragon 625, 2GB+ RAM) |
+| [`ki-oushudh-v1.1.0.apk`](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.1.0.apk) | **v1.1.0** | Android 5.0+ (API 21+) — ARMv7 & ARM64 | 13,929 Brands + 1,640 Generics (DGDA) | Low-Tier to Flagship (e.g. Snapdragon 625, 2GB+ RAM) |
 
 > **Quick 3-Step Setup on Phone**:
-> 1. Tap **[Direct Download](https://github.com/meawsin/ki_oushudh/releases/latest/download/ki-oushudh-v1.0.apk)** on your Android device.
-> 2. Open `ki-oushudh-v1.0.apk` from your Downloads and tap **Install** (*enable "Install Unknown Apps" if prompted*).
+> 1. Tap **[Direct Download](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.1.0.apk)** on your Android device.
+> 2. Open `ki-oushudh-v1.1.0.apk` from your Downloads and tap **Install** (*enable "Install Unknown Apps" if prompted*).
 > 3. Open **কী ওষুধ**, grant camera permission, and scan any medicine packaging, blister packet, or pick an image from your gallery!
 
 ---
@@ -604,7 +604,7 @@ You can install and test Ki Oushodh on any physical Android device without needi
 
 ### Option A: Download from GitHub Releases (Quickest)
 Directly download the pre-built standalone APK to your phone:
-- 📲 **[Download ki-oushudh-v1.0.apk](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk)** *(83.2 MB)*
+- 📲 **[Download ki-oushudh-v1.1.0.apk](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.1.0.apk)** *(84.6 MB)*
 - Or browse all releases on the **[GitHub Releases Page](https://github.com/meawsin/ki_oushodh/releases)**.
 
 ### Option B: Build the Release APK Locally
