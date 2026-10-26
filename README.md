@@ -1,5 +1,5 @@
 # Ki Oushodh (কী ওষুধ)
-### *Edge-AI Assistive Healthcare System for Offline Medicine Identification and Auditory Literacy in Resource-Constrained Environments*
+### *Offline Mobile Assistive Healthcare System for Medicine Identification and Auditory Literacy in Resource-Constrained Environments*
 
 [![Download APK](https://img.shields.io/badge/📲%20Download%20APK-v1.0%20(Release)-3DDC84?logo=android&logoColor=white&style=for-the-badge)](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.0.apk)
 [![GitHub Releases](https://img.shields.io/badge/🏷️%20GitHub%20Releases-v1.0-24292e?logo=github&logoColor=white&style=for-the-badge)](https://github.com/meawsin/ki_oushodh/releases)
@@ -41,7 +41,7 @@ Test Ki Oushodh on any physical Android phone without needing to compile from so
 
 ## Executive Summary & Research Context
 
-**Ki Oushodh** (Bengali: *কী ওষুধ*, meaning *"What Medicine?"*) is an applied Artificial Intelligence and Human-Computer Interaction (HCI) assistive mobile health (mHealth) system engineered specifically for low-literacy individuals, visually impaired populations, and elderly patients in Bangladesh and the Global South. 
+**Ki Oushodh** (Bengali: *কী ওষুধ*, meaning *"What Medicine?"*) is an offline-first Android application designed specifically for low-literacy individuals, visually impaired populations, and elderly patients in Bangladesh and the Global South. 
 
 In low- and middle-income countries (LMICs), medication identification errors represent a major cause of preventable drug toxicity and treatment non-compliance. Blister pack labeling typically features dense, sub-millimeter Latin typography, reflective aluminum foils, complex chemical nomenclatures, and poor packaging contrast. Traditional mHealth solutions fail this demographic because they depend on high-speed internet connectivity, English textual literacy, and complex tactile navigation.
 
@@ -55,7 +55,7 @@ Ki Oushodh addresses this health equity gap through **Zero-Click Auditory Litera
 
 ## Key Engineering & Research Highlights
 
-- **100% Offline Edge Intelligence**: Zero reliance on remote servers, cloud vision APIs, or active internet connectivity. All optical character recognition, NLP tokenization, and database indexing occur entirely on-device.
+- **100% Offline Edge Intelligence**: Zero reliance on remote servers, cloud vision APIs, or active internet connectivity. All optical character recognition, string normalization, and local database querying occur entirely on-device.
 - **Blister Pack Foil Glare Resilience**: Normalizes acute OCR artifacts from shiny foil reflections (e.g. `0meprazole` $\rightarrow$ `Omeprazole`, `Sec1o` $\rightarrow$ `Seclo`, `Paracetamo1` $\rightarrow$ `Paracetamol`), separates glued dosages (`Napa500` $\rightarrow$ `Napa 500`), and consolidates embossed spaced lettering (`S E C L O` $\rightarrow$ `SECLO`).
 - **Cross-Line Phrase Extraction & Multi-Ingredient Heuristics**: Assembles multi-line blister pack typography (e.g. Line 1: `Napa`, Line 2: `Extend`), matches combination formulations (e.g. `Aluminium Hydroxide + Magnesium Hydroxide + Simethicone` $\rightarrow$ `Entacyd Plus`), and prevents greedy chemical suffix collisions (e.g. stops `Omega-3 Fatty Acid` from false-matching `Folic Acid`).
 - **Low-Literacy Vernacular Auditory Synthesis**: Features phonetic Bengali transliteration for pharmaceutical brand and generic nomenclature (e.g., `Napa Extend` $\rightarrow$ `"নাপা এক্সটেন্ড"`, `Entacyd Plus` $\rightarrow$ `"এন্টাসিড প্লাস"`, `MaxOmega` $\rightarrow$ `"ম্যাক্সওমেগা"`). Sentences are capped at 2 concise, gentle sentences free of clinical jargon or confusing milligram calculations, delivered at a calibrated, warm speech cadence.
@@ -115,7 +115,7 @@ Ki Oushodh follows **Clean Architecture** with a strict **Model-View-ViewModel (
 ┌────────────────────────────────────▼────────────────────────────────────┐
 │                             SERVICES & CORE                             │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────┐ │
-│  │  CameraService   │  │    OCRService    │  │       LLMService       │ │
+│  │  CameraService   │  │    OCRService    │  │     SearchService      │ │
 │  │(1080p, AutoFocus)│  │ (Google ML Kit)  │  │ (5-Tier Search Engine) │ │
 │  └──────────────────┘  └──────────────────┘  └───────────┬────────────┘ │
 │  ┌──────────────────┐  ┌──────────────────┐              │              │
@@ -373,7 +373,7 @@ If using this codebase or architecture for academic research or publications, pl
 ```bibtex
 @misc{ki_oushodh_2026,
   author = {Mohsin},
-  title = {Ki Oushodh: An Edge-AI Assistive Healthcare System for Offline Medicine Identification and Auditory Literacy},
+  title = {Ki Oushodh: An Offline Mobile Assistive Healthcare System for Medicine Identification and Auditory Literacy},
   year = {2026},
   publisher = {GitHub},
   journal = {GitHub repository},
