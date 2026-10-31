@@ -181,7 +181,7 @@ class SettingsScreen extends ConsumerWidget {
                     icon: Icons.contrast_rounded,
                     title: t('উচ্চ কন্ট্রাস্ট', 'High contrast'),
                     subtitle: settings.highContrast
-                        ? t('চালু — বর্ডার উজ্জ্বল', 'On — bright borders')
+                        ? t('চালু', 'On')
                         : t('বন্ধ', 'Off'),
                     cs: cs,
                     trailing: _ThemedSwitch(
@@ -228,8 +228,8 @@ class SettingsScreen extends ConsumerWidget {
                     },
                     onTest: () {
                       final text = language == 'bn'
-                          ? 'এটি কি ঔষধ অ্যাপের কণ্ঠস্বরের নমুনা পরীক্ষা।'
-                          : 'This is a sample voice test for Ki Oushodh.';
+                          ? 'এটি অ্যাপের কণ্ঠস্বরের নমুনা পরীক্ষা।'
+                          : 'This is a sample voice test for the app.';
                       ref.read(ttsServiceProvider).speak(
                             text,
                             language: language,
@@ -275,7 +275,7 @@ class SettingsScreen extends ConsumerWidget {
                   _Tile(
                     icon: Icons.info_outline_rounded,
                     title: 'কি ঔষধ',
-                    subtitle: 'Version 1.0.0 · 100% Offline',
+                    subtitle: 'Version 1.0.0',
                     cs: cs,
                   ),
 
@@ -290,9 +290,7 @@ class SettingsScreen extends ConsumerWidget {
 
                   _Tile(
                     icon: Icons.gavel_rounded,
-                    title: t('দাবিত্যাগ ও নিরাপত্তা নীতি', 'Disclaimer & Safety Notice'),
-                    subtitle: t('চিকিৎসা ও এআই সংক্রান্ত দিকনির্দেশনা',
-                        'Medical and AI usage guidelines'),
+                    title: t('সতর্কতা ও নিরাপত্তা নীতি', 'Disclaimer & Safety Notice'),
                     cs: cs,
                     onTap: () => _showDisclaimer(context, cs, language),
                   ),
@@ -360,11 +358,11 @@ class SettingsScreen extends ConsumerWidget {
                 language == 'bn'
                     ? '১. চিকিৎসকের বিকল্প নয়:\n"কি ঔষধ" অ্যাপটি শুধুমাত্র তথ্য ও সাধারণ সচেতনতা বৃদ্ধির উদ্দেশ্যে তৈরি করা হয়েছে। এটি কোনো বিশেষজ্ঞ চিকিৎসকের পরামর্শ, রোগ নির্ণয় বা চিকিৎসার বিকল্প নয়।\n\n'
                       '২. ওষুধ সেবনের সতর্কতা:\nযেকোনো ওষুধ সেবন, বন্ধ করা বা মাত্রা পরিবর্তন করার পূর্বে অবশ্যই বিএমডিসি রেজিস্টার্ড চিকিৎসকের প্রেসক্রিপশন ও পরামর্শ নিন।\n\n'
-                      '৩. এআই শনাক্তকরণ সীমাবদ্ধতা:\nক্যামেরায় অস্পষ্ট আলো, ছেঁড়া বা ভাঁজযুক্ত ওষুধের পাতা থাকলে কম্পিউটার ভিশন বা ওসিআর ভুল তথ্য দিতে পারে। অ্যাপে দেখানো নামের সাথে ওষুধের পাতার মূল মুদ্রিত নাম মিলিয়ে নিন।\n\n'
+                      '৩. শনাক্তকরণ সীমাবদ্ধতা:\nক্যামেরায় অস্পষ্ট আলো, ছেঁড়া বা ভাঁজযুক্ত ওষুধের পাতা থাকলে কম্পিউটার ভিশন বা ওসিআর ভুল তথ্য দিতে পারে। অ্যাপে দেখানো নামের সাথে ওষুধের পাতার মূল মুদ্রিত নাম মিলিয়ে নিন।\n\n'
                       '৪. জরুরি অবস্থা:\nজরুরি স্বাস্থ্য সমস্যার ক্ষেত্রে নিকটস্থ হাসপাতাল বা জরুরি সেবা (৯৯৯) এ যোগাযোগ করুন।'
                     : '1. Not a Substitute for Medical Advice:\n"Ki Oushodh" is intended for general informational and educational awareness only. It is NOT a substitute for professional medical advice, diagnosis, or treatment.\n\n'
                       '2. Safe Medication Use:\nAlways consult a registered physician or pharmacist before starting, stopping, or altering any medication dosage.\n\n'
-                      '3. AI & OCR Limitations:\nDue to low light, damaged packaging, or glare, optical character recognition may occasionally misidentify text. Always verify with the printed packaging.\n\n'
+                      '3. OCR Limitations:\nDue to low light, damaged packaging, or glare, optical character recognition may occasionally misidentify text. Always verify with the printed packaging.\n\n'
                       '4. Medical Emergencies:\nIn case of an emergency, immediately contact your local healthcare provider or national emergency services (999).',
                 style: TextStyle(
                   color: cs.onSurfaceVariant,
@@ -441,11 +439,11 @@ class SettingsScreen extends ConsumerWidget {
                     ? '• অন্তর্ভুক্ত ব্র্যান্ড সংখ্যা: ১৩,৯২৯টি বাংলাদেশি নিবন্ধিত ওষুধ।\n'
                       '• অন্তর্ভুক্ত জেনেরিক সংখ্যা: ১,৬৪০টি বৈজ্ঞানিক জেনেরিক অণু।\n\n'
                       '• ডেটা উৎস:\nবাংলাদেশ ঔষধ প্রশাসন অধিদপ্তর (DGDA - Directorate General of Drug Administration) কর্তৃক অনুমোদিত এবং জাতীয় ওষুধ তালিকাভুক্ত তথ্যের ভিত্তিতে সংগৃহীত।\n\n'
-                      '• শতভাগ অফলাইন ও গোপনীয়তা:\nসমস্ত ডেটাবেস অ্যাপ্লিকেশনের ভেতরে সংরক্ষিত থাকে। আপনার স্ক্যান বা অনুসন্ধানের কোনো তথ্য ইন্টারনেটে পাঠানো হয় না, যা সম্পূর্ণ নিরাপদ এবং ইন্টারনেটের উপস্থিতি ছাড়াই সর্বদা কাজ করে।'
+                      '• গোপনীয়তা:\nসমস্ত ডেটাবেস অ্যাপ্লিকেশনের ভেতরে সংরক্ষিত থাকে। আপনার স্ক্যান বা অনুসন্ধানের কোনো তথ্য ইন্টারনেটে পাঠানো হয় না, যা সম্পূর্ণ নিরাপদ এবং ইন্টারনেটের উপস্থিতি ছাড়াই সর্বদা কাজ করে।'
                     : '• Included Brands: 13,929 registered Bangladeshi medicines.\n'
                       '• Included Generics: 1,640 scientific active pharmaceutical ingredients.\n\n'
                       '• Data Source:\nCompiled based on registered and approved medications under DGDA (Directorate General of Drug Administration, Bangladesh).\n\n'
-                      '• 100% Offline & Private:\nThe database operates entirely on-device. No images, personal data, or medical queries are ever transmitted over the network.',
+                      '• Privacy:\nThe database operates entirely on-device. No images, personal data, or medical queries are ever transmitted over the network.',
                 style: TextStyle(
                   color: cs.onSurfaceVariant,
                   fontSize: 14,

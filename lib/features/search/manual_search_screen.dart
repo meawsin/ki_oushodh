@@ -157,12 +157,6 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
                             letterSpacing: -0.5,
                           ),
                         ),
-                        Text(
-                          language == 'bn'
-                              ? '১৩,৯২৯টি ওষুধ · সম্পূর্ণ অফলাইন'
-                              : '13,929 Medicines · 100% Offline',
-                          style: TextStyle(color: cs.primary, fontSize: 11, fontWeight: FontWeight.w600),
-                        ),
                       ],
                     ),
                   ),
@@ -301,19 +295,11 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        language == 'bn' ? 'ইন্টারনেট ছাড়াই অনুসন্ধান' : 'Completely Offline',
-                        style: TextStyle(
-                          color: cs.onSurface,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
                       const SizedBox(height: 4),
                       Text(
                         language == 'bn'
                             ? 'ক্যামেরা স্ক্যানের বিকল্প হিসেবে যে কোনো ব্র্যান্ড বা জেনেরিক নাম লিখে তাৎক্ষণিক তথ্য জানুন।'
-                            : 'Look up any Bangladeshi brand or generic name instantly without internet connectivity.',
+                            : 'Look up any Bangladeshi brand or generic name instantly without scanning',
                         style: TextStyle(
                           color: cs.onSurfaceVariant,
                           fontSize: 12,

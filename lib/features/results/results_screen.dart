@@ -161,27 +161,6 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                         ),
                         const SizedBox(width: 8),
                         // Identified badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: cs.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Container(
-                              width: 6, height: 6,
-                              decoration: const BoxDecoration(
-                                  color: Colors.green, shape: BoxShape.circle),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              language == 'bn' ? 'চিহ্নিত' : 'Identified',
-                              style: TextStyle(
-                                  color: cs.primary, fontSize: 11, fontWeight: FontWeight.w600),
-                            ),
-                          ]),
-                        ),
                       ],
                     ),
                   ),
@@ -376,8 +355,8 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen>
                                         Expanded(
                                           child: Text(
                                             language == 'bn'
-                                                ? 'দাবিত্যাগ: এটি এআই চালিত প্রাথমিক তথ্য নির্দেশিকা। কোনো ওষুধ সেবনের আগে অবশ্যই রেজিস্টার্ড চিকিৎসকের পরামর্শ নিন।'
-                                                : 'Disclaimer: This is an AI-powered informational guide. Always consult a registered physician before taking any medication.',
+                                                ? 'সতর্কতা: কোনো ওষুধ সেবনের আগে অবশ্যই রেজিস্টার্ড চিকিৎসকের পরামর্শ নিন।'
+                                                : 'Disclaimer: Always consult a registered physician before taking any medication.',
                                             style: TextStyle(
                                               color: cs.onSurfaceVariant,
                                               fontSize: 11,

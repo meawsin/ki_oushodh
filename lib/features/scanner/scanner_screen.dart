@@ -200,17 +200,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                         'কি ঔষধ',
                         style: TextStyle(
                           color: cs.primary,
-                          fontSize: 22,
+                          fontSize: 25,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.5,
-                        ),
-                      ),
-                      Text(
-                        'Medicine Identifier',
-                        style: TextStyle(
-                          color: cs.onSurfaceVariant,
-                          fontSize: 11,
-                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
