@@ -15,7 +15,13 @@
 ---
 
 ## Download App (Direct Android Install)
-1. Tap **[Direct Download](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.1.0.apk)** on your Android device.
+
+| Version | Download Link | File Size | Highlights |
+|---|---|---|---|
+| **v1.1.0 (Latest)** | **[Download ki-oushudh-v1.1.0.apk](https://github.com/meawsin/ki_oushodh/releases/download/v1.1.0/ki-oushudh-v1.1.0.apk)** | ~84.6 MB | Gallery picker, offline search, TTS speed slider, UI polish |
+| **v1.0.0 (Legacy)** | **[Download ki-oushudh-v1.0.apk](https://github.com/meawsin/ki_oushodh/releases/download/v1.0.0/ki-oushudh-v1.0.apk)** | ~83.2 MB | Initial production release |
+
+1. Tap **[Direct Download v1.1.0](https://github.com/meawsin/ki_oushodh/releases/download/v1.1.0/ki-oushudh-v1.1.0.apk)** (or use the [Latest Release Mirror](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.1.0.apk)) on your Android device.
 2. Open `ki-oushudh-v1.1.0.apk` from your Downloads and tap **Install** (*enable "Install Unknown Apps" if prompted*).
 3. Open **কী ওষুধ**, grant camera permission, and scan any medicine packaging, blister packet, or pick an image from your gallery!
 
@@ -58,18 +64,18 @@ Ki Oushodh addresses this health equity gap through **Zero-Click Auditory Litera
   <img src="screenshots/06_database_info_sheet.png" width="31%" alt="DGDA Verified Offline Database Sheet" />
 </p>
 <p align="center">
-  <em>Figure 2: (Left) Identified Medicine Result with TTS, safety precautions, and Medical AI Disclaimer banner; (Center) Accessibility Settings with Voice Speed slider; (Right) Offline DGDA Database compendium sheet.</em>
+  <em>Figure 2: (Left) Identified Medicine Result with TTS, safety precautions, and Medical Disclaimer banner; (Center) Accessibility Settings with Voice Speed slider; (Right) Offline DGDA Database compendium sheet.</em>
 </p>
 
 <p align="center">
-  <img src="screenshots/07_safety_disclaimer_sheet.png" width="31%" alt="Medical and AI Safety Notice Modal Sheet" />
+  <img src="screenshots/07_gallery_picker.png" width="31%" alt="Native Android Photo Picker for Gallery Scanning" />
   &nbsp;&nbsp;
-  <img src="screenshots/08_gallery_picker.png" width="31%" alt="Native Android Photo Picker Integration" />
+  <img src="screenshots/08_gallery_picker_result.png" width="31%" alt="Result Found from Gallery Scanning" />
   &nbsp;&nbsp;
   <img src="screenshots/09_scan_history.png" width="31%" alt="Swipeable 30-Day Encrypted Local Scan History" />
 </p>
 <p align="center">
-  <em>Figure 3: (Left) Clinical Safety & Emergency 999 Guidance Bottom Sheet; (Center) Native Android photo picker for gallery scanning; (Right) Encrypted local scan history with audio replay.</em>
+  <em>Figure 3: (Left) Native Android photo picker for gallery scanning; (Center) Result found from the gallery scanning; (Right) Encrypted local scan history with audio replay.</em>
 </p>
 
 ---
@@ -227,7 +233,8 @@ You can install and test Ki Oushodh on any physical Android device without needi
 
 ### Option A: Download from GitHub Releases (Quickest)
 Directly download the pre-built standalone APK to your phone:
-- **[Download ki-oushudh-v1.1.0.apk](https://github.com/meawsin/ki_oushodh/releases/latest/download/ki-oushudh-v1.1.0.apk)** *(84.6 MB)*
+- 📲 **[Download ki-oushudh-v1.1.0.apk (Latest v1.1.0)](https://github.com/meawsin/ki_oushodh/releases/download/v1.1.0/ki-oushudh-v1.1.0.apk)** *(84.6 MB)*
+- 📦 **[Download ki-oushudh-v1.0.apk (v1.0.0)](https://github.com/meawsin/ki_oushodh/releases/download/v1.0.0/ki-oushudh-v1.0.apk)** *(83.2 MB)*
 - Or browse all releases on the **[GitHub Releases Page](https://github.com/meawsin/ki_oushodh/releases)**.
 
 ### Option B: Build the Release APK Locally
